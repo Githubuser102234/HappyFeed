@@ -9,7 +9,7 @@
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
     #chatBox div { margin-bottom: 5px; }
     #msgInput, #nameInput { padding: 10px; width: 70%; margin-top: 10px; }
-    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #clearBtn, #undoClearBtn { padding: 10px 20px; margin-top: 10px; }
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
     #chooseImageBtn {
       font-size: 24px;
       width: 40px;
@@ -43,9 +43,6 @@
 
   <input type="text" id="msgInput" placeholder="Type a message..." />
   <button id="sendBtn">Send</button>
-
-  <button id="clearBtn">Clear Chat</button>
-  <button id="undoClearBtn" disabled>Undo Clear</button>
 
   <br><br>
 
@@ -81,12 +78,8 @@
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
     const imagePreview = document.getElementById('imagePreview');
-    const clearBtn = document.getElementById('clearBtn');
-    const undoClearBtn = document.getElementById('undoClearBtn');
 
     let selectedFile = null;
-    let lastClearTime = parseInt(localStorage.getItem('chatLastClearTime')) || 0;
-    const allMessages = [];
 
     saveNameBtn.addEventListener("click", () => {
       const name = nameInput.value.trim();
@@ -125,25 +118,9 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    function clearChatBox() {
-      chatBox.innerHTML = "";
-    }
-
-    function renderFilteredMessages() {
-      clearChatBox();
-      allMessages.forEach(msg => {
-        if (!msg.timestamp || msg.timestamp > lastClearTime) {
-          renderMessage(msg);
-        }
-      });
-    }
-
     onChildAdded(messagesRef, snapshot => {
       const msg = snapshot.val();
-      allMessages.push(msg);
-      if (!msg.timestamp || msg.timestamp > lastClearTime) {
-        renderMessage(msg);
-      }
+      renderMessage(msg);
     });
 
     chooseImageBtn.addEventListener("click", () => {
@@ -192,34 +169,6 @@
       } catch (err) {
         alert("Error uploading image.");
         console.error(err);
-      }
-    });
-
-    clearBtn.addEventListener("click", () => {
-      lastClearTime = Date.now();
-      localStorage.setItem('chatLastClearTime', lastClearTime);
-
-      const backup = allMessages.filter(msg => msg.timestamp <= lastClearTime);
-      sessionStorage.setItem('clearedMessagesBackup', JSON.stringify(backup));
-
-      clearChatBox();
-      undoClearBtn.disabled = false;
-      alert("Chat cleared locally. Refresh or reload to see all messages again.");
-    });
-
-    undoClearBtn.addEventListener("click", () => {
-      const backup = JSON.parse(sessionStorage.getItem('clearedMessagesBackup') || "[]");
-      clearChatBox();
-      backup.forEach(msg => renderMessage(msg));
-      undoClearBtn.disabled = true;
-    });
-
-    window.addEventListener("load", () => {
-      sessionStorage.removeItem('clearedMessagesBackup');
-      if (lastClearTime > 0) {
-        undoClearBtn.disabled = true;
-      } else {
-        undoClearBtn.disabled = true;
       }
     });
   </script>
