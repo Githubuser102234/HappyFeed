@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Feed Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    h2 {
+      text-align: center;
+    }
+    form {
+      margin-bottom: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 60px;
+      padding: 10px;
+      resize: none;
+      font-size: 16px;
+    }
+    button {
+      padding: 10px 20px;
+      margin-top: 10px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    ul {
+      list-style-type: disc;
+      padding-left: 20px;
+    }
+    li {
+      margin: 10px 0;
+      background: #eef;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    li.unknown-post:hover {
+      background-color: #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Feed Page</h2>
+    <form id="postForm">
+      <textarea id="postContent" placeholder="Write something..."></textarea>
+      <br />
+      <button type="submit">Post</button>
+    </form>
+    <ul id="postList">
+      <li class="unknown-post">Unknown post</li>
+      <li class="unknown-post">Unknown post</li>
+      <li class="unknown-post">Unknown post</li>
+    </ul>
+  </div>
+
+  <script>
+    const form = document.getElementById('postForm');
+    const postContent = document.getElementById('postContent');
+    const postList = document.getElementById('postList');
+
+    // Add click handler to unknown posts
+    function setupUnknownPostLinks() {
+      const unknownPosts = document.querySelectorAll('li.unknown-post');
+      unknownPosts.forEach(li => {
+        li.addEventListener('click', () => {
+          const message = `Sorry, this post is no longer available\nIt has been removed for violating our community guidelines`;
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            // Write the raw text content
+            newWindow.document.write('<pre style="font-family: monospace; white-space: pre-wrap; margin: 20px;">' + message + '</pre>');
+            newWindow.document.title = 'Post Removed';
+            newWindow.document.close();
+          } else {
+            alert('Please allow popups for this site to see the message.');
+          }
+        });
+      });
+    }
+
+    setupUnknownPostLinks();
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const content = postContent.value.trim();
+      if (content !== '') {
+        const li = document.createElement('li');
+        li.textContent = content;
+        postList.prepend(li);
+        postContent.value = '';
+      }
+    });
+  </script>
+</body>
+</html>
