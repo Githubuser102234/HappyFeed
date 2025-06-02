@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>GitHub Pages Chat</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -44,40 +42,51 @@
   <input type="text" id="msgInput" placeholder="Type your message..." />
   <button id="sendBtn">Send</button>
 
-  <script>
-    // 🔥 Replace this with your own Firebase config
+  <script type="module">
+    // Import Firebase SDK modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-analytics.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+
+    // Your Firebase config
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
+      authDomain: "happyfeed-af48f.firebaseapp.com",
+      projectId: "happyfeed-af48f",
+      storageBucket: "happyfeed-af48f.appspot.com",
+      messagingSenderId: "456897128438",
+      appId: "1:456897128438:web:1cfc3fe338df22498549d7",
+      measurementId: "G-FHH5G086TJ",
+      databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com" // Required for DB
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const messagesRef = db.ref("messages");
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getDatabase(app);
+    const messagesRef = ref(db, "messages");
 
+    // DOM elements
     const chatBox = document.getElementById("chatBox");
     const msgInput = document.getElementById("msgInput");
     const sendBtn = document.getElementById("sendBtn");
 
+    // Send message
     sendBtn.addEventListener("click", sendMessage);
     msgInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") sendMessage();
     });
 
     function sendMessage() {
-      const msg = msgInput.value.trim();
-      if (msg) {
-        messagesRef.push({ text: msg });
+      const text = msgInput.value.trim();
+      if (text) {
+        push(messagesRef, { text });
         msgInput.value = "";
       }
     }
 
-    messagesRef.on("child_added", (snapshot) => {
+    // Display messages in real-time
+    onChildAdded(messagesRef, (snapshot) => {
       const msg = snapshot.val().text;
       const msgElement = document.createElement("div");
       msgElement.textContent = msg;
