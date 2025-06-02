@@ -3,19 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Firebase Chat Test</title>
+  <title>Firebase Chat w/ Usernames</title>
   <style>
     body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
     #chatBox div { margin-bottom: 5px; }
+    #msgInput, #nameInput { padding: 10px; width: 70%; margin-top: 10px; }
+    #sendBtn, #saveNameBtn { padding: 10px 20px; margin-top: 10px; }
   </style>
 </head>
 <body>
 
-  <h2>Firebase Chat Test</h2>
+  <h2>Firebase Chat</h2>
+
+  <div>
+    <input type="text" id="nameInput" placeholder="Enter your name" />
+    <button id="saveNameBtn">Save Name</button>
+  </div>
 
   <div id="chatBox"></div>
-  <input type="text" id="msgInput" placeholder="Message" />
+
+  <input type="text" id="msgInput" placeholder="Type a message..." />
   <button id="sendBtn">Send</button>
 
   <script type="module">
@@ -39,24 +47,39 @@
     const chatBox = document.getElementById('chatBox');
     const msgInput = document.getElementById('msgInput');
     const sendBtn = document.getElementById('sendBtn');
+    const nameInput = document.getElementById('nameInput');
+    const saveNameBtn = document.getElementById('saveNameBtn');
 
-    sendBtn.onclick = sendMessage;
-    msgInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') sendMessage();
+    // Save username to localStorage
+    saveNameBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim();
+      if (name) {
+        localStorage.setItem("username", name);
+        alert("Name saved!");
+      }
+    });
+
+    // Send message with username
+    sendBtn.addEventListener("click", sendMessage);
+    msgInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") sendMessage();
     });
 
     function sendMessage() {
       const text = msgInput.value.trim();
-      if (!text) return;
-      push(messagesRef, { text });
-      msgInput.value = '';
+      const username = localStorage.getItem("username") || "Anonymous";
+      if (text) {
+        push(messagesRef, { text, username });
+        msgInput.value = "";
+      }
     }
 
+    // Show messages
     onChildAdded(messagesRef, snapshot => {
-      const message = snapshot.val().text;
-      const div = document.createElement('div');
-      div.textContent = message;
-      chatBox.appendChild(div);
+      const msg = snapshot.val();
+      const msgElement = document.createElement("div");
+      msgElement.textContent = `[${msg.username || "Anonymous"}]: ${msg.text}`;
+      chatBox.appendChild(msgElement);
       chatBox.scrollTop = chatBox.scrollHeight;
     });
   </script>
