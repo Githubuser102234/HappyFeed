@@ -1,92 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Real-Time Chat</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 30px;
-    background: #f9f9f9;
-  }
-  #chat {
-    border: 1px solid #ccc;
-    height: 400px;
-    width: 400px;
-    overflow-y: scroll;
-    padding: 10px;
-    background: white;
-    margin-bottom: 10px;
-  }
-  #chat div {
-    margin-bottom: 10px;
-  }
-  #messageInput {
-    width: 300px;
-    padding: 8px;
-  }
-  #sendBtn {
-    padding: 8px 12px;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GitHub Pages Chat</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 30px;
+    }
+    h2 {
+      text-align: center;
+    }
+    #chatBox {
+      background: white;
+      border: 1px solid #ccc;
+      padding: 15px;
+      height: 300px;
+      overflow-y: scroll;
+      margin-bottom: 15px;
+    }
+    #chatBox div {
+      margin-bottom: 8px;
+    }
+    #msgInput {
+      width: 70%;
+      padding: 10px;
+    }
+    #sendBtn {
+      padding: 10px 20px;
+    }
+  </style>
 </head>
 <body>
 
-<h2>Real-Time Chat</h2>
-<div id="chat"></div>
+  <h2>GitHub Pages Real-Time Chat</h2>
 
-<input type="text" id="messageInput" placeholder="Type your message..." />
-<button id="sendBtn">Send</button>
+  <div id="chatBox"></div>
 
-<script>
-  const chat = document.getElementById('chat');
-  const messageInput = document.getElementById('messageInput');
-  const sendBtn = document.getElementById('sendBtn');
+  <input type="text" id="msgInput" placeholder="Type your message..." />
+  <button id="sendBtn">Send</button>
 
-  // Connect to WebSocket server
-  const ws = new WebSocket('ws://localhost:8080');
+  <script>
+    // 🔥 Replace this with your own Firebase config
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
-  ws.onopen = () => {
-    appendMessage('System: Connected to chat server.');
-  };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const messagesRef = db.ref("messages");
 
-  ws.onmessage = (event) => {
-    appendMessage('Friend: ' + event.data);
-  };
+    const chatBox = document.getElementById("chatBox");
+    const msgInput = document.getElementById("msgInput");
+    const sendBtn = document.getElementById("sendBtn");
 
-  ws.onclose = () => {
-    appendMessage('System: Disconnected from chat server.');
-  };
+    sendBtn.addEventListener("click", sendMessage);
+    msgInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
 
-  ws.onerror = (error) => {
-    appendMessage('System: Error occurred - ' + error.message);
-  };
-
-  sendBtn.addEventListener('click', sendMessage);
-  messageInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      sendMessage();
+    function sendMessage() {
+      const msg = msgInput.value.trim();
+      if (msg) {
+        messagesRef.push({ text: msg });
+        msgInput.value = "";
+      }
     }
-  });
 
-  function sendMessage() {
-    const message = messageInput.value.trim();
-    if (message) {
-      appendMessage('You: ' + message);
-      ws.send(message);
-      messageInput.value = '';
-      messageInput.focus();
-    }
-  }
-
-  function appendMessage(message) {
-    const div = document.createElement('div');
-    div.textContent = message;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight; // scroll to bottom
-  }
-</script>
-
+    messagesRef.on("child_added", (snapshot) => {
+      const msg = snapshot.val().text;
+      const msgElement = document.createElement("div");
+      msgElement.textContent = msg;
+      chatBox.appendChild(msgElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+  </script>
 </body>
 </html>
