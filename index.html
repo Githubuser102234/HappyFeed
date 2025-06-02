@@ -42,12 +42,11 @@
   <input type="text" id="msgInput" placeholder="Type your message..." />
   <button id="sendBtn">Send</button>
 
-  <script type="module">
-    // Import Firebase SDK modules
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-analytics.js";
-    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+  <!-- Firebase JS SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
+  <script>
     // Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
@@ -57,21 +56,18 @@
       messagingSenderId: "456897128438",
       appId: "1:456897128438:web:1cfc3fe338df22498549d7",
       measurementId: "G-FHH5G086TJ",
-      databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com" // Required for DB
+      databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
     };
 
     // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
-    const db = getDatabase(app);
-    const messagesRef = ref(db, "messages");
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const messagesRef = db.ref("messages");
 
-    // DOM elements
     const chatBox = document.getElementById("chatBox");
     const msgInput = document.getElementById("msgInput");
     const sendBtn = document.getElementById("sendBtn");
 
-    // Send message
     sendBtn.addEventListener("click", sendMessage);
     msgInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") sendMessage();
@@ -80,13 +76,12 @@
     function sendMessage() {
       const text = msgInput.value.trim();
       if (text) {
-        push(messagesRef, { text });
+        messagesRef.push({ text });
         msgInput.value = "";
       }
     }
 
-    // Display messages in real-time
-    onChildAdded(messagesRef, (snapshot) => {
+    messagesRef.on("child_added", (snapshot) => {
       const msg = snapshot.val().text;
       const msgElement = document.createElement("div");
       msgElement.textContent = msg;
