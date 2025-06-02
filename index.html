@@ -9,7 +9,25 @@
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
     #chatBox div { margin-bottom: 5px; }
     #msgInput, #nameInput { padding: 10px; width: 70%; margin-top: 10px; }
-    #sendBtn, #saveNameBtn, #uploadBtn { padding: 10px 20px; margin-top: 10px; }
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
+    #chooseImageBtn {
+      font-size: 24px;
+      width: 40px;
+      height: 40px;
+      line-height: 30px;
+      padding: 0;
+      text-align: center;
+      cursor: pointer;
+    }
+    #imagePreview {
+      max-width: 100px;
+      max-height: 100px;
+      margin-left: 10px;
+      vertical-align: middle;
+      display: none;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -27,8 +45,18 @@
   <button id="sendBtn">Send</button>
 
   <br><br>
-  <input type="file" id="imageInput" accept="image/*" />
-  <button id="uploadBtn">Upload Image</button>
+
+  <!-- Hidden file input -->
+  <input type="file" id="imageInput" accept="image/*" style="display:none" />
+
+  <!-- Plus button to trigger file input -->
+  <button id="chooseImageBtn">+</button>
+
+  <!-- Image preview -->
+  <img id="imagePreview" alt="Image preview" />
+
+  <!-- Separate send button for image -->
+  <button id="uploadBtn">Send Image</button>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
@@ -54,7 +82,11 @@
     const nameInput = document.getElementById('nameInput');
     const saveNameBtn = document.getElementById('saveNameBtn');
     const imageInput = document.getElementById('imageInput');
+    const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
+    const imagePreview = document.getElementById('imagePreview');
+
+    let selectedFile = null;
 
     saveNameBtn.addEventListener("click", () => {
       const name = nameInput.value.trim();
@@ -96,18 +128,39 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     });
 
+    // When plus button clicked, open file chooser
+    chooseImageBtn.addEventListener("click", () => {
+      imageInput.click();
+    });
+
+    // Show image preview on file select
+    imageInput.addEventListener("change", () => {
+      selectedFile = imageInput.files[0];
+      if (selectedFile) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          imagePreview.src = e.target.result;
+          imagePreview.style.display = "inline-block";
+        };
+        reader.readAsDataURL(selectedFile);
+      } else {
+        imagePreview.src = "";
+        imagePreview.style.display = "none";
+      }
+    });
+
+    // Upload image when send image button clicked
     uploadBtn.addEventListener("click", async () => {
-      const file = imageInput.files[0];
-      if (!file) return alert("Please choose an image.");
+      if (!selectedFile) return alert("Please choose an image first.");
 
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("image", selectedFile);
 
       try {
         const res = await fetch("https://api.imgur.com/3/image", {
           method: "POST",
           headers: {
-            Authorization: "Client-ID 2e7d80bbaa0f77b" // Public Imgur test client ID
+            Authorization: "Client-ID 2e7d80bbaa0f77b" // Replace with your own Client-ID for production
           },
           body: formData
         });
@@ -117,6 +170,11 @@
           const imageUrl = data.data.link;
           const username = localStorage.getItem("username") || "Anonymous";
           push(messagesRef, { imageUrl, username });
+          // Clear preview and reset input
+          imagePreview.src = "";
+          imagePreview.style.display = "none";
+          imageInput.value = "";
+          selectedFile = null;
         } else {
           alert("Image upload failed.");
         }
