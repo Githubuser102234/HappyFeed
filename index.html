@@ -9,7 +9,7 @@
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
     #chatBox div { margin-bottom: 5px; }
     #msgInput, #nameInput { padding: 10px; width: 70%; margin-top: 10px; }
-    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #clearBtn { padding: 10px 20px; margin-top: 10px; }
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #clearBtn, #undoClearBtn { padding: 10px 20px; margin-top: 10px; }
     #chooseImageBtn {
       font-size: 24px;
       width: 40px;
@@ -45,6 +45,7 @@
   <button id="sendBtn">Send</button>
 
   <button id="clearBtn">Clear Chat</button>
+  <button id="undoClearBtn" disabled>Undo Clear</button>
 
   <br><br>
 
@@ -88,12 +89,15 @@
     const uploadBtn = document.getElementById('uploadBtn');
     const imagePreview = document.getElementById('imagePreview');
     const clearBtn = document.getElementById('clearBtn');
+    const undoClearBtn = document.getElementById('undoClearBtn');
 
     let selectedFile = null;
 
-    // Keep track if user has cleared the chat locally
-    // We'll store the timestamp of the last clear for filtering old messages
-    let lastClearTime = localStorage.getItem('chatLastClearTime') || 0;
+    // Timestamp of last clear stored in localStorage (or 0 if none)
+    let lastClearTime = parseInt(localStorage.getItem('chatLastClearTime')) || 0;
+
+    // Store all received messages here for undo
+    const allMessages = [];
 
     // Save username
     saveNameBtn.addEventListener("click", () => {
@@ -135,10 +139,26 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // Listen for new messages
+    // Clear chat box visually
+    function clearChatBox() {
+      chatBox.innerHTML = "";
+    }
+
+    // Render messages that are after lastClearTime
+    function renderFilteredMessages() {
+      clearChatBox();
+      allMessages.forEach(msg => {
+        if (!msg.timestamp || msg.timestamp > lastClearTime) {
+          renderMessage(msg);
+        }
+      });
+    }
+
+    // Listen for new messages and keep all in array for undo
     onChildAdded(messagesRef, snapshot => {
       const msg = snapshot.val();
-      // Only render if message timestamp is after last clear time
+      allMessages.push(msg);
+      // Only render if message timestamp is after lastClearTime
       if (!msg.timestamp || msg.timestamp > lastClearTime) {
         renderMessage(msg);
       }
@@ -202,16 +222,40 @@
 
     // Clear chat for the user (only locally)
     clearBtn.addEventListener("click", () => {
-      // Store current timestamp in localStorage
       lastClearTime = Date.now();
       localStorage.setItem('chatLastClearTime', lastClearTime);
 
-      // Clear the chat box visually
-      chatBox.innerHTML = "";
+      clearChatBox();
 
-      alert("Chat cleared locally. Refresh or reload to see new messages.");
+      // After clear, enable Undo button because old messages are still in allMessages[]
+      undoClearBtn.disabled = false;
+      alert("Chat cleared locally. Refresh or reload to see all messages again.");
     });
 
+    // Undo Clear button - restores messages locally, only if not refreshed
+    undoClearBtn.addEventListener("click", () => {
+      // Reset lastClearTime locally (but keep in localStorage so if refreshed stays cleared)
+      lastClearTime = 0;
+      // Don't clear localStorage, so refresh will still clear the chat again
+      // Disable Undo because we just restored view
+      undoClearBtn.disabled = true;
+
+      // Re-render all messages regardless of timestamp
+      clearChatBox();
+      allMessages.forEach(msg => renderMessage(msg));
+    });
+
+    // On load: if chat was cleared previously, enable Undo, else disable
+    window.addEventListener("load", () => {
+      if (lastClearTime > 0) {
+        // We do NOT have the old messages loaded yet, so undo only works until refresh.
+        // Undo can work only if we have messages in allMessages[] - which is empty at load.
+        // So disable Undo after reload (because no old messages in memory yet)
+        undoClearBtn.disabled = true;
+      } else {
+        undoClearBtn.disabled = true;
+      }
+    });
   </script>
 
 </body>
