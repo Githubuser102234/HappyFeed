@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Real-Time Chat</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 30px;
+    background: #f9f9f9;
+  }
+  #chat {
+    border: 1px solid #ccc;
+    height: 400px;
+    width: 400px;
+    overflow-y: scroll;
+    padding: 10px;
+    background: white;
+    margin-bottom: 10px;
+  }
+  #chat div {
+    margin-bottom: 10px;
+  }
+  #messageInput {
+    width: 300px;
+    padding: 8px;
+  }
+  #sendBtn {
+    padding: 8px 12px;
+  }
+</style>
+</head>
+<body>
+
+<h2>Real-Time Chat</h2>
+<div id="chat"></div>
+
+<input type="text" id="messageInput" placeholder="Type your message..." />
+<button id="sendBtn">Send</button>
+
+<script>
+  const chat = document.getElementById('chat');
+  const messageInput = document.getElementById('messageInput');
+  const sendBtn = document.getElementById('sendBtn');
+
+  // Connect to WebSocket server
+  const ws = new WebSocket('ws://localhost:8080');
+
+  ws.onopen = () => {
+    appendMessage('System: Connected to chat server.');
+  };
+
+  ws.onmessage = (event) => {
+    appendMessage('Friend: ' + event.data);
+  };
+
+  ws.onclose = () => {
+    appendMessage('System: Disconnected from chat server.');
+  };
+
+  ws.onerror = (error) => {
+    appendMessage('System: Error occurred - ' + error.message);
+  };
+
+  sendBtn.addEventListener('click', sendMessage);
+  messageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      sendMessage();
+    }
+  });
+
+  function sendMessage() {
+    const message = messageInput.value.trim();
+    if (message) {
+      appendMessage('You: ' + message);
+      ws.send(message);
+      messageInput.value = '';
+      messageInput.focus();
+    }
+  }
+
+  function appendMessage(message) {
+    const div = document.createElement('div');
+    div.textContent = message;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight; // scroll to bottom
+  }
+</script>
+
+</body>
+</html>
