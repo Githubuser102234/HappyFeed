@@ -18,7 +18,7 @@
       border: 1px solid #ccc;
       padding: 15px;
       height: 300px;
-      overflow-y: scroll;
+      overflow-y: auto;
       margin-bottom: 15px;
     }
     #chatBox div {
@@ -42,12 +42,12 @@
   <input type="text" id="msgInput" placeholder="Type your message..." />
   <button id="sendBtn">Send</button>
 
-  <!-- Firebase JS SDK -->
+  <!-- Firebase CDN SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
   <script>
-    // Your Firebase config
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
       authDomain: "happyfeed-af48f.firebaseapp.com",
@@ -64,15 +64,18 @@
     const db = firebase.database();
     const messagesRef = db.ref("messages");
 
+    // DOM elements
     const chatBox = document.getElementById("chatBox");
     const msgInput = document.getElementById("msgInput");
     const sendBtn = document.getElementById("sendBtn");
 
+    // Event listeners
     sendBtn.addEventListener("click", sendMessage);
     msgInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") sendMessage();
     });
 
+    // Send message
     function sendMessage() {
       const text = msgInput.value.trim();
       if (text) {
@@ -81,12 +84,13 @@
       }
     }
 
+    // Listen for new messages
     messagesRef.on("child_added", (snapshot) => {
       const msg = snapshot.val().text;
       const msgElement = document.createElement("div");
       msgElement.textContent = msg;
       chatBox.appendChild(msgElement);
-      chatBox.scrollTop = chatBox.scrollHeight;
+      chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll
     });
   </script>
 </body>
