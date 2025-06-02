@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GitHub Pages Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitHub Pages Real-Time Chat (Module)</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -35,19 +35,20 @@
 </head>
 <body>
 
-  <h2>GitHub Pages Real-Time Chat</h2>
+  <h2>GitHub Pages Real-Time Chat (Module)</h2>
 
   <div id="chatBox"></div>
 
   <input type="text" id="msgInput" placeholder="Type your message..." />
   <button id="sendBtn">Send</button>
 
-  <!-- Firebase CDN SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script type="module">
+    // Import Firebase modular SDK functions
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-analytics.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
 
-  <script>
-    // Firebase config
+    // Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
       authDomain: "happyfeed-af48f.firebaseapp.com",
@@ -60,37 +61,39 @@
     };
 
     // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const messagesRef = db.ref("messages");
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getDatabase(app);
+
+    // Reference to messages node
+    const messagesRef = ref(db, "messages");
 
     // DOM elements
     const chatBox = document.getElementById("chatBox");
     const msgInput = document.getElementById("msgInput");
     const sendBtn = document.getElementById("sendBtn");
 
-    // Event listeners
+    // Send message on button click or Enter key
     sendBtn.addEventListener("click", sendMessage);
     msgInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") sendMessage();
     });
 
-    // Send message
     function sendMessage() {
       const text = msgInput.value.trim();
       if (text) {
-        messagesRef.push({ text });
+        push(messagesRef, { text });
         msgInput.value = "";
       }
     }
 
-    // Listen for new messages
-    messagesRef.on("child_added", (snapshot) => {
+    // Listen for new messages in real-time
+    onChildAdded(messagesRef, (snapshot) => {
       const msg = snapshot.val().text;
       const msgElement = document.createElement("div");
       msgElement.textContent = msg;
       chatBox.appendChild(msgElement);
-      chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll
+      chatBox.scrollTop = chatBox.scrollHeight; // Scroll to bottom
     });
   </script>
 </body>
