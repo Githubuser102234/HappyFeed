@@ -26,7 +26,6 @@
   <input type="text" id="msgInput" placeholder="Type a message..." />
   <button id="sendBtn">Send</button>
 
-  <!-- 👇 The only addition requested -->
   <br><br>
   <input type="file" id="imageInput" accept="image/*" />
   <button id="uploadBtn">Upload Image</button>
@@ -34,7 +33,6 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
-    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
@@ -48,7 +46,6 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const storage = getStorage(app);
     const messagesRef = ref(db, 'messages');
 
     const chatBox = document.getElementById('chatBox');
@@ -85,7 +82,6 @@
       const msg = snapshot.val();
       const msgElement = document.createElement("div");
 
-      // Check if it's an image message
       if (msg.imageUrl) {
         const img = document.createElement("img");
         img.src = msg.imageUrl;
@@ -102,14 +98,32 @@
 
     uploadBtn.addEventListener("click", async () => {
       const file = imageInput.files[0];
-      if (!file) return;
+      if (!file) return alert("Please choose an image.");
 
-      const username = localStorage.getItem("username") || "Anonymous";
-      const imgRef = sRef(storage, `images/${Date.now()}-${file.name}`);
-      await uploadBytes(imgRef, file);
-      const downloadURL = await getDownloadURL(imgRef);
+      const formData = new FormData();
+      formData.append("image", file);
 
-      push(messagesRef, { imageUrl: downloadURL, username });
+      try {
+        const res = await fetch("https://api.imgur.com/3/image", {
+          method: "POST",
+          headers: {
+            Authorization: "Client-ID 2e7d80bbaa0f77b" // Public Imgur test client ID
+          },
+          body: formData
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          const imageUrl = data.data.link;
+          const username = localStorage.getItem("username") || "Anonymous";
+          push(messagesRef, { imageUrl, username });
+        } else {
+          alert("Image upload failed.");
+        }
+      } catch (err) {
+        alert("Error uploading image.");
+        console.error(err);
+      }
     });
   </script>
 
