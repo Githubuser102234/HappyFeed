@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Private Chat with Read/Delivered Receipts</title>
+  <title>Private Chat</title>
   <style>
     body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
-    #chatBox div.message { margin-bottom: 15px; padding: 8px; border-radius: 6px; position: relative; }
+    #chatBox div.message { margin-bottom: 10px; padding: 8px; border-radius: 6px; position: relative; }
     .sent { background-color: #e0e0e0; color: #000; }       /* Gray for sent */
     .received { background-color: #d4e8fd; color: #1a2b3d; } /* Blue for received */
-    .status { font-size: 12px; color: #666; margin-top: 4px; }
+    .status { font-size: 0.8em; color: #555; margin-top: 4px; }
     #msgInput, #nameInput, #recipientInput { padding: 10px; width: 70%; margin-top: 10px; }
     #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
     #chooseImageBtn {
@@ -35,7 +35,7 @@
 </head>
 <body>
 
-  <h2>Private Chat with Read/Delivered Receipts</h2>
+  <h2>Private Chat</h2>
 
   <div>
     <input type="text" id="nameInput" placeholder="Enter your name" />
@@ -59,9 +59,9 @@
   <button id="uploadBtn">Send Image</button>
 
   <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
     // Firebase config & init
     const firebaseConfig = {
@@ -73,15 +73,16 @@
       appId: "1:456897128438:web:1cfc3fe338df22498549d7",
       databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
     };
+
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Supabase init
+    // Supabase client init with your keys
     const SUPABASE_URL = "https://zrihhqirdacczfbhcwpc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyaWhocWlyZGFjY3pmYmhjd3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwODY3NDIsImV4cCI6MjA2NDY2Mjc0Mn0.8GWDvZADjTLhz6sLHUtBvKcFtotAEEqbbwijyIyZ4dg";
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // DOM Elements
+    // DOM elements
     const chatBox = document.getElementById('chatBox');
     const msgInput = document.getElementById('msgInput');
     const sendBtn = document.getElementById('sendBtn');
@@ -95,7 +96,6 @@
 
     let selectedFile = null;
 
-    // Save name & load messages
     saveNameBtn.addEventListener("click", () => {
       const name = nameInput.value.trim();
       if (name) {
@@ -110,47 +110,57 @@
       if (e.key === "Enter") sendMessage();
     });
 
-    async function sendMessage() {
+    // Send message to Firebase
+    function sendMessage() {
       const text = msgInput.value.trim();
       const sender = localStorage.getItem("username") || "Anonymous";
       const recipient = recipientInput.value.trim();
       if (!text || !recipient) return;
 
-      // Prepare message object WITHOUT ID yet
       const message = {
         text,
         username: sender,
         to: recipient,
-        timestamp: Date.now(),
-        imageUrl: null
+        timestamp: Date.now()
       };
 
-      // Push to Firebase and get the key (message ID)
       const recipientRef = ref(db, `privateMessages/${recipient}/${sender}`);
-      const newMsgRef = push(recipientRef, message);
-      const messageId = newMsgRef.key;
+      push(recipientRef, message);
 
-      // Push same message for sender's inbox too
       const senderRef = ref(db, `privateMessages/${sender}/${recipient}`);
       push(senderRef, message);
-
-      // Insert read/delivered status in Supabase (initially delivered: true, read: false)
-      await supabase
-        .from('message_receipts')
-        .insert([{ message_id: messageId, sender, recipient, delivered: true, read: false }]);
 
       msgInput.value = "";
     }
 
-    function createMessageElement(msg, id) {
+    // Fetch delivery/read status from Supabase
+    async function getReceiptStatus(sender, recipient, timestamp) {
+      const { data, error } = await supabase
+        .from('message_receipts')
+        .select('delivered, read')
+        .eq('sender', sender)
+        .eq('recipient', recipient)
+        .eq('timestamp', timestamp)
+        .single();
+
+      if (error || !data) {
+        return null;
+      }
+      return data;
+    }
+
+    // Render message with read/delivered status below if sent by current user
+    async function renderMessage(msg) {
       const msgElement = document.createElement("div");
       msgElement.classList.add("message");
+
       const currentUser = localStorage.getItem("username") || "Anonymous";
-
       const isSent = msg.username === currentUser;
-      msgElement.classList.add(isSent ? "sent" : "received");
+      const directionText = isSent
+        ? `You → ${msg.to}`
+        : `${msg.username} → You`;
 
-      const directionText = isSent ? `You → ${msg.to}` : `${msg.username} → You`;
+      msgElement.classList.add(isSent ? "sent" : "received");
 
       if (msg.imageUrl) {
         msgElement.innerHTML = `<strong>${directionText}</strong><br>`;
@@ -162,51 +172,29 @@
         msgElement.textContent = `[${directionText}]: ${msg.text}`;
       }
 
-      // Add status container for delivered/read
+      // Append status element placeholder
       const statusDiv = document.createElement("div");
       statusDiv.classList.add("status");
-      statusDiv.textContent = "Loading status...";
+      statusDiv.textContent = isSent ? "Loading status..." : "";
       msgElement.appendChild(statusDiv);
 
-      // Fetch and update status from Supabase
-      updateMessageStatus(id, statusDiv, isSent);
+      chatBox.appendChild(msgElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
 
-      return msgElement;
-    }
-
-    async function updateMessageStatus(messageId, statusElement, isSent) {
-      if (!messageId) {
-        statusElement.textContent = ""; // no ID, no status
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('message_receipts')
-          .select('delivered,read')
-          .eq('message_id', messageId)
-          .single();
-
-        if (error || !data) {
-          statusElement.textContent = ""; 
-          return;
-        }
-
-        // Show delivered/read only for messages SENT by current user
-        if (isSent) {
-          const deliveredText = data.delivered ? "Delivered ✓" : "Not delivered";
-          const readText = data.read ? "Read ✓✓" : "Not read";
-          statusElement.textContent = `${deliveredText} | ${readText}`;
+      if (isSent) {
+        // Fetch status and update UI
+        const status = await getReceiptStatus(msg.username, msg.to, msg.timestamp);
+        if (status) {
+          const deliveredText = status.delivered ? "Delivered ✓" : "Not delivered";
+          const readText = status.read ? "Read ✓✓" : "Not read";
+          statusDiv.textContent = `${deliveredText} | ${readText}`;
         } else {
-          // For received messages, no need to show status (optional)
-          statusElement.textContent = "";
+          statusDiv.textContent = "Status unavailable";
         }
-      } catch (err) {
-        console.error("Error fetching status from Supabase:", err);
-        statusElement.textContent = "";
       }
     }
 
+    // Load messages for logged-in user
     function loadMessagesFor(username) {
       chatBox.innerHTML = "";
       const userInboxRef = ref(db, `privateMessages/${username}`);
@@ -214,24 +202,21 @@
       onChildAdded(userInboxRef, (conversationSnapshot) => {
         const conversationKey = conversationSnapshot.key;
         const messagesRef = ref(db, `privateMessages/${username}/${conversationKey}`);
-        onChildAdded(messagesRef, (msgSnapshot) => {
+        onChildAdded(messagesRef, async (msgSnapshot) => {
           const msg = msgSnapshot.val();
-          const msgId = msgSnapshot.key;
-          const messageElement = createMessageElement(msg, msgId);
-          chatBox.appendChild(messageElement);
-          chatBox.scrollTop = chatBox.scrollHeight;
+          await renderMessage(msg);
         });
       });
     }
 
-    // Load saved username & messages
+    // Initialize with saved username
     const savedUsername = localStorage.getItem("username");
     if (savedUsername) {
       loadMessagesFor(savedUsername);
       nameInput.value = savedUsername;
     }
 
-    // Image upload handling (same as before)
+    // Image upload handlers
     chooseImageBtn.addEventListener("click", () => {
       imageInput.click();
     });
@@ -270,21 +255,13 @@
         const data = await res.json();
         if (data.success) {
           const imageUrl = data.data.link;
-          const message = { text: "", username, to: recipient, timestamp: Date.now(), imageUrl };
+          const message = { imageUrl, username, to: recipient, timestamp: Date.now() };
 
-          // Push to Firebase and get message id
           const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
-          const newMsgRef = push(recipientRef, message);
-          const messageId = newMsgRef.key;
+          push(recipientRef, message);
 
-          // Push for sender's inbox
           const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
           push(senderRef, message);
-
-          // Insert read/delivered status in Supabase
-          await supabase
-            .from('message_receipts')
-            .insert([{ message_id: messageId, sender: username, recipient, delivered: true, read: false }]);
 
           imagePreview.src = "";
           imagePreview.style.display = "none";
