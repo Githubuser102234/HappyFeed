@@ -3,25 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chat</title>
+  <title>Private Chat</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
-    #chatBox { border: 1px solid #ccc; height: 300px; overflow-y: auto; background: #fff; padding: 10px; margin-bottom: 10px; }
-    #chatBox div { padding: 8px; margin-bottom: 8px; border-radius: 6px; }
-    .sent { background: #e0e0e0; text-align: right; }
-    .received { background: #d4e8fd; text-align: left; }
-    .receipt { font-size: 12px; color: gray; display: block; margin-top: 4px; }
+    body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
+    #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
+    #chatBox div { margin-bottom: 10px; padding: 8px; border-radius: 6px; }
+    .sent { background-color: #e0e0e0; color: #000; position: relative; }
+    .received { background-color: #d4e8fd; color: #1a2b3d; position: relative; }
+    .status { font-size: 10px; color: #555; position: absolute; bottom: 4px; right: 8px; }
+    #msgInput, #nameInput, #recipientInput { padding: 10px; width: 70%; margin-top: 10px; }
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
+    #chooseImageBtn {
+      font-size: 24px;
+      width: 40px;
+      height: 40px;
+      line-height: 30px;
+      padding: 0;
+      text-align: center;
+      cursor: pointer;
+    }
+    #imagePreview {
+      max-width: 100px;
+      max-height: 100px;
+      margin-left: 10px;
+      vertical-align: middle;
+      display: none;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
 
-  <h2>Chat App</h2>
+  <h2>Private Chat</h2>
 
-  <label for="usernameInput">Enter your name:</label>
-  <input type="text" id="usernameInput" placeholder="Your name" />
-  <button id="setUsernameBtn">Set Name</button>
+  <div>
+    <input type="text" id="nameInput" placeholder="Enter your name" />
+    <button id="saveNameBtn">Save Name</button>
+  </div>
 
-  <div style="margin-top:10px;">
+  <div>
     <input type="text" id="recipientInput" placeholder="Recipient's name" />
   </div>
 
@@ -30,9 +51,22 @@
   <input type="text" id="msgInput" placeholder="Type a message..." />
   <button id="sendBtn">Send</button>
 
-  <!-- Firebase SDK (you can still use it for other things) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script>
+  <br><br>
+
+  <input type="file" id="imageInput" accept="image/*" style="display:none" />
+  <button id="chooseImageBtn">+</button>
+  <img id="imagePreview" alt="Image preview" />
+  <button id="uploadBtn">Send Image</button>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    const supabaseUrl = "https://zrihhqirdacczfbhcwpc.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyaWhocWlyZGFjY3pmYmhjd3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwODY3NDIsImV4cCI6MjA2NDY2Mjc0Mn0.8GWDvZADjTLhz6sLHUtBvKcFtotAEEqbbwijyIyZ4dg";
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const firebaseConfig = {
       apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
       authDomain: "happyfeed-af48f.firebaseapp.com",
@@ -42,117 +76,195 @@
       appId: "1:456897128438:web:1cfc3fe338df22498549d7",
       databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
     };
-    firebase.initializeApp(firebaseConfig);
-  </script>
 
-  <!-- Supabase -->
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    const supabaseUrl = 'https://zrihhqirdacczfbhcwpc.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyaWhocWlyZGFjY3pmYmhjd3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwODY3NDIsImV4cCI6MjA2NDY2Mjc0Mn0.8GWDvZADjTLhz6sLHUtBvKcFtotAEEqbbwijyIyZ4dg';
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const usernameInput = document.getElementById('usernameInput');
-    const setUsernameBtn = document.getElementById('setUsernameBtn');
-    const recipientInput = document.getElementById('recipientInput');
     const chatBox = document.getElementById('chatBox');
     const msgInput = document.getElementById('msgInput');
     const sendBtn = document.getElementById('sendBtn');
+    const nameInput = document.getElementById('nameInput');
+    const recipientInput = document.getElementById('recipientInput');
+    const saveNameBtn = document.getElementById('saveNameBtn');
+    const imageInput = document.getElementById('imageInput');
+    const chooseImageBtn = document.getElementById('chooseImageBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const imagePreview = document.getElementById('imagePreview');
 
-    let currentUser = null;
+    let selectedFile = null;
 
-    setUsernameBtn.addEventListener('click', () => {
-      const name = usernameInput.value.trim();
+    saveNameBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim();
       if (name) {
-        currentUser = name;
-        usernameInput.disabled = true;
-        setUsernameBtn.disabled = true;
-        loadMessages();
-      } else {
-        alert('Please enter your name.');
+        localStorage.setItem("username", name);
+        alert("Name saved!");
+        loadMessagesFor(name);
       }
     });
 
-    sendBtn.addEventListener('click', sendMessage);
-    msgInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') sendMessage();
+    sendBtn.addEventListener("click", sendMessage);
+    msgInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") sendMessage();
     });
 
     async function sendMessage() {
       const text = msgInput.value.trim();
-      const to = recipientInput.value.trim();
-      const from = currentUser;
+      const sender = localStorage.getItem("username") || "Anonymous";
+      const recipient = recipientInput.value.trim();
+      if (!text || !recipient) return;
 
-      if (!text || !to || !from) return;
+      const timestamp = Date.now();
+      const message = { text, username: sender, to: recipient, timestamp };
 
-      const { error } = await supabase.from('messages').insert({
-        text,
-        from_user: from,
-        to_user: to,
-        status: 'sent'
-      });
+      const recipientRef = ref(db, `privateMessages/${recipient}/${sender}`);
+      push(recipientRef, message);
+      const senderRef = ref(db, `privateMessages/${sender}/${recipient}`);
+      push(senderRef, message);
 
-      if (error) {
-        console.error('Send message error:', error);
-      } else {
-        msgInput.value = '';
-      }
+      await supabase.from("message_status").insert([
+        { sender, recipient, timestamp, delivered: true, read: false }
+      ]);
+
+      msgInput.value = "";
     }
 
-    async function loadMessages() {
-      chatBox.innerHTML = '';
-      if (!currentUser) return;
-
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`from_user.eq.${currentUser},to_user.eq.${currentUser}`)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      data.forEach(msg => renderMessage(msg));
-
-      supabase
-        .channel('messages')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-          const msg = payload.new;
-          if (msg.from_user === currentUser || msg.to_user === currentUser) {
-            renderMessage(msg, true);
-          }
-        })
-        .subscribe();
+    async function updateReadStatus(sender, recipient, timestamp) {
+      await supabase
+        .from("message_status")
+        .update({ read: true })
+        .eq("sender", sender)
+        .eq("recipient", recipient)
+        .eq("timestamp", timestamp);
     }
 
-    function renderMessage(msg, isRealtime = false) {
-      const isSent = msg.from_user === currentUser;
-      const msgDiv = document.createElement('div');
-      msgDiv.className = isSent ? 'sent' : 'received';
+    async function getStatus(sender, recipient, timestamp) {
+      const { data } = await supabase
+        .from("message_status")
+        .select("delivered, read")
+        .eq("sender", sender)
+        .eq("recipient", recipient)
+        .eq("timestamp", timestamp)
+        .single();
+      return data || { delivered: false, read: false };
+    }
 
-      if (msg.image_url) {
-        const img = document.createElement('img');
-        img.src = msg.image_url;
-        img.style.maxWidth = '200px';
-        msgDiv.appendChild(img);
+    async function renderMessage(msg) {
+      const msgElement = document.createElement("div");
+      const currentUser = localStorage.getItem("username") || "Anonymous";
+      const isSent = msg.username === currentUser;
+      const directionText = isSent ? `You → ${msg.to}` : `${msg.username} → You`;
+
+      msgElement.classList.add(isSent ? "sent" : "received");
+
+      if (!isSent) {
+        await updateReadStatus(msg.username, currentUser, msg.timestamp);
+      }
+
+      const status = isSent ? await getStatus(currentUser, msg.to, msg.timestamp) : null;
+
+      if (msg.imageUrl) {
+        const img = document.createElement("img");
+        img.src = msg.imageUrl;
+        img.style.maxWidth = "200px";
+        msgElement.innerHTML = `<strong>${directionText}</strong><br>`;
+        msgElement.appendChild(img);
       } else {
-        msgDiv.textContent = msg.text;
+        msgElement.innerHTML = `[${directionText}]: ${msg.text}`;
       }
 
-      if (isSent) {
-        const receipt = document.createElement('span');
-        receipt.className = 'receipt';
-        receipt.textContent = msg.status === 'read' ? '✅✅ Read' : '✅ Delivered';
-        msgDiv.appendChild(receipt);
+      if (status) {
+        const statusText = status.read ? "✓✓ Read" : status.delivered ? "✓ Delivered" : "";
+        const statusDiv = document.createElement("div");
+        statusDiv.className = "status";
+        statusDiv.textContent = statusText;
+        msgElement.appendChild(statusDiv);
       }
 
-      chatBox.appendChild(msgDiv);
+      chatBox.appendChild(msgElement);
       chatBox.scrollTop = chatBox.scrollHeight;
     }
-  </script>
 
+    function loadMessagesFor(username) {
+      chatBox.innerHTML = "";
+      const userInboxRef = ref(db, `privateMessages/${username}`);
+      onChildAdded(userInboxRef, (conversationSnapshot) => {
+        const conversationKey = conversationSnapshot.key;
+        const messagesRef = ref(db, `privateMessages/${username}/${conversationKey}`);
+        onChildAdded(messagesRef, async (msgSnapshot) => {
+          const msg = msgSnapshot.val();
+          await renderMessage(msg);
+        });
+      });
+    }
+
+    const savedUsername = localStorage.getItem("username");
+    if (savedUsername) {
+      loadMessagesFor(savedUsername);
+      nameInput.value = savedUsername;
+    }
+
+    chooseImageBtn.addEventListener("click", () => {
+      imageInput.click();
+    });
+
+    imageInput.addEventListener("change", () => {
+      selectedFile = imageInput.files[0];
+      if (selectedFile) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          imagePreview.src = e.target.result;
+          imagePreview.style.display = "inline-block";
+        };
+        reader.readAsDataURL(selectedFile);
+      } else {
+        imagePreview.src = "";
+        imagePreview.style.display = "none";
+      }
+    });
+
+    uploadBtn.addEventListener("click", async () => {
+      if (!selectedFile) return alert("Please choose an image first.");
+      const recipient = recipientInput.value.trim();
+      const username = localStorage.getItem("username") || "Anonymous";
+      if (!recipient) return alert("Enter a recipient before sending an image.");
+
+      const formData = new FormData();
+      formData.append("image", selectedFile);
+      try {
+        const res = await fetch("https://api.imgur.com/3/image", {
+          method: "POST",
+          headers: {
+            Authorization: "Client-ID bf20b916779ba44"
+          },
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          const imageUrl = data.data.link;
+          const timestamp = Date.now();
+          const message = { imageUrl, username, to: recipient, timestamp };
+
+          const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
+          push(recipientRef, message);
+          const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
+          push(senderRef, message);
+
+          await supabase.from("message_status").insert([
+            { sender: username, recipient, timestamp, delivered: true, read: false }
+          ]);
+
+          imagePreview.src = "";
+          imagePreview.style.display = "none";
+          imageInput.value = "";
+          selectedFile = null;
+        } else {
+          alert("Image upload failed.");
+        }
+      } catch (err) {
+        alert("Error uploading image.");
+        console.error(err);
+      }
+    });
+  </script>
 </body>
 </html>
