@@ -11,7 +11,7 @@
     .sent { background-color: #e0e0e0; color: #000; }       /* Gray for sent */
     .received { background-color: #d4e8fd; color: #1a2b3d; } /* Blue for received */
     #msgInput, #nameInput, #recipientInput { padding: 10px; width: 70%; margin-top: 10px; }
-    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #returnBtn { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
     #chooseImageBtn {
       font-size: 24px;
       width: 40px;
@@ -19,7 +19,6 @@
       line-height: 30px;
       padding: 0;
       text-align: center;
-      cursor: pointer;
     }
     #imagePreview {
       max-width: 100px;
@@ -35,6 +34,7 @@
 <body>
 
   <h2>Private Chat</h2>
+  <button id="returnBtn">Return to Chat</button>
 
   <div>
     <input type="text" id="nameInput" placeholder="Enter your name" />
@@ -84,8 +84,13 @@
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
     const imagePreview = document.getElementById('imagePreview');
+    const returnBtn = document.getElementById('returnBtn');
 
     let selectedFile = null;
+
+    returnBtn.addEventListener("click", () => {
+      window.location.href = "https://githubuser102234.github.io/HappyFeed/";
+    });
 
     saveNameBtn.addEventListener("click", () => {
       const name = nameInput.value.trim();
