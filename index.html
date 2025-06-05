@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Private Chat</title>
+  <title>Chat</title>
   <style>
     body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
     #chatBox div { margin-bottom: 5px; }
-    #msgInput, #nameInput, #recipientInput { padding: 10px; width: 70%; margin-top: 10px; }
+    #msgInput, #nameInput { padding: 10px; width: 70%; margin-top: 10px; }
     #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
     #chooseImageBtn {
       font-size: 24px;
@@ -32,15 +32,11 @@
 </head>
 <body>
 
-  <h2>Private Chat</h2>
+  <h2>Chat</h2>
 
   <div>
     <input type="text" id="nameInput" placeholder="Enter your name" />
     <button id="saveNameBtn">Save Name</button>
-  </div>
-
-  <div>
-    <input type="text" id="recipientInput" placeholder="Recipient's name" />
   </div>
 
   <div id="chatBox"></div>
@@ -71,12 +67,12 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const messagesRef = ref(db, 'messages');
 
     const chatBox = document.getElementById('chatBox');
     const msgInput = document.getElementById('msgInput');
     const sendBtn = document.getElementById('sendBtn');
     const nameInput = document.getElementById('nameInput');
-    const recipientInput = document.getElementById('recipientInput');
     const saveNameBtn = document.getElementById('saveNameBtn');
     const imageInput = document.getElementById('imageInput');
     const chooseImageBtn = document.getElementById('chooseImageBtn');
@@ -90,7 +86,6 @@
       if (name) {
         localStorage.setItem("username", name);
         alert("Name saved!");
-        loadMessagesFor(name);
       }
     });
 
@@ -101,18 +96,11 @@
 
     function sendMessage() {
       const text = msgInput.value.trim();
-      const sender = localStorage.getItem("username") || "Anonymous";
-      const recipient = recipientInput.value.trim();
-      if (!text || !recipient) return;
-
-      const privateRef = ref(db, `privateMessages/${recipient}/${sender}`);
-      push(privateRef, {
-        text,
-        username: sender,
-        to: recipient,
-        timestamp: Date.now()
-      });
-      msgInput.value = "";
+      const username = localStorage.getItem("username") || "Anonymous";
+      if (text) {
+        push(messagesRef, { text, username, timestamp: Date.now() });
+        msgInput.value = "";
+      }
     }
 
     function renderMessage(msg) {
@@ -124,28 +112,16 @@
         msgElement.innerHTML = `<strong>${msg.username || "Anonymous"}</strong>:<br>`;
         msgElement.appendChild(img);
       } else {
-        msgElement.textContent = `[${msg.username || "Anonymous"} → you]: ${msg.text}`;
+        msgElement.textContent = `[${msg.username || "Anonymous"}]: ${msg.text}`;
       }
       chatBox.appendChild(msgElement);
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    function loadMessagesFor(username) {
-      chatBox.innerHTML = "";
-      const userInboxRef = ref(db, `privateMessages/${username}`);
-      onChildAdded(userInboxRef, snapshot => {
-        const convo = snapshot.val();
-        for (const msgId in convo) {
-          renderMessage(convo[msgId]);
-        }
-      });
-    }
-
-    // Auto-load messages for saved name
-    const savedUsername = localStorage.getItem("username");
-    if (savedUsername) {
-      loadMessagesFor(savedUsername);
-    }
+    onChildAdded(messagesRef, snapshot => {
+      const msg = snapshot.val();
+      renderMessage(msg);
+    });
 
     chooseImageBtn.addEventListener("click", () => {
       imageInput.click();
@@ -168,10 +144,6 @@
 
     uploadBtn.addEventListener("click", async () => {
       if (!selectedFile) return alert("Please choose an image first.");
-      const recipient = recipientInput.value.trim();
-      const username = localStorage.getItem("username") || "Anonymous";
-      if (!recipient) return alert("Enter a recipient before sending an image.");
-
       const formData = new FormData();
       formData.append("image", selectedFile);
       try {
@@ -185,8 +157,8 @@
         const data = await res.json();
         if (data.success) {
           const imageUrl = data.data.link;
-          const privateRef = ref(db, `privateMessages/${recipient}/${username}`);
-          push(privateRef, { imageUrl, username, to: recipient, timestamp: Date.now() });
+          const username = localStorage.getItem("username") || "Anonymous";
+          push(messagesRef, { imageUrl, username, timestamp: Date.now() });
           imagePreview.src = "";
           imagePreview.style.display = "none";
           imageInput.value = "";
