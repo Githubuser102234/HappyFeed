@@ -11,12 +11,14 @@
     .sent { background-color: #e0e0e0; color: #000; }
     .received { background-color: #d4e8fd; color: #1a2b3d; }
 
-    #msgInput, #nameInput, #recipientInput { padding: 10px; width: 70%; margin-top: 10px; }
-    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #returnBtn {
-      padding: 10px 20px;
-      margin-top: 10px;
-      cursor: pointer;
+    #msgInput, #nameInput, #recipientInput {
+      padding: 10px; width: 70%; margin-top: 10px;
     }
+
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #returnBtn {
+      padding: 10px 20px; margin-top: 10px; cursor: pointer;
+    }
+
     #chooseImageBtn {
       font-size: 24px;
       width: 40px;
@@ -25,27 +27,38 @@
       padding: 0;
       text-align: center;
     }
-    .image-preview {
+
+    #imagePreview {
       max-width: 100px;
       max-height: 100px;
-      margin: 5px 5px 0 0;
-      display: inline-block;
+      margin-left: 10px;
+      vertical-align: middle;
+      display: none;
       border: 1px solid #ccc;
       border-radius: 4px;
     }
+
     .spinner {
       display: inline-block;
-      width: 24px;
-      height: 24px;
-      border: 3px solid rgba(0, 0, 0, 0.1);
-      border-top: 3px solid #000;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0, 0, 0, 0.2);
+      border-top-color: #333;
       border-radius: 50%;
-      animation: spin 1s linear infinite;
+      animation: spin 0.6s linear infinite;
       vertical-align: middle;
       margin-left: 10px;
     }
+
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+
+    #uploadStatus {
+      color: gray;
+      margin-left: 8px;
+      font-size: 14px;
+      vertical-align: middle;
     }
   </style>
 </head>
@@ -72,9 +85,10 @@
 
   <input type="file" id="imageInput" accept="image/*" multiple style="display:none" />
   <button id="chooseImageBtn">+</button>
+  <img id="imagePreview" alt="Image preview" />
+  <button id="uploadBtn">Send Image</button>
   <span id="spinner" class="spinner" style="display:none;"></span>
-  <div id="previewContainer"></div>
-  <button id="uploadBtn">Send Image(s)</button>
+  <span id="uploadStatus"></span>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
@@ -102,9 +116,10 @@
     const imageInput = document.getElementById('imageInput');
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
+    const imagePreview = document.getElementById('imagePreview');
     const returnBtn = document.getElementById('returnBtn');
-    const previewContainer = document.getElementById('previewContainer');
     const spinner = document.getElementById('spinner');
+    const uploadStatus = document.getElementById('uploadStatus');
 
     let selectedFiles = [];
 
@@ -132,12 +147,17 @@
       const recipient = recipientInput.value.trim();
       if (!text || !recipient) return;
 
-      const message = { text, username: sender, to: recipient, timestamp: Date.now() };
+      const message = {
+        text,
+        username: sender,
+        to: recipient,
+        timestamp: Date.now()
+      };
 
       const recipientRef = ref(db, `privateMessages/${recipient}/${sender}`);
-      push(recipientRef, message);
-
       const senderRef = ref(db, `privateMessages/${sender}/${recipient}`);
+
+      push(recipientRef, message);
       push(senderRef, message);
 
       msgInput.value = "";
@@ -146,8 +166,10 @@
     function renderMessage(msg) {
       const msgElement = document.createElement("div");
       const currentUser = localStorage.getItem("username") || "Anonymous";
+
       const isSent = msg.username === currentUser;
       const directionText = isSent ? `You → ${msg.to}` : `${msg.username} → You`;
+
       msgElement.classList.add(isSent ? "sent" : "received");
 
       if (msg.imageUrl) {
@@ -190,60 +212,68 @@
 
     imageInput.addEventListener("change", () => {
       selectedFiles = Array.from(imageInput.files);
-      previewContainer.innerHTML = "";
-      selectedFiles.forEach(file => {
+      if (selectedFiles.length > 0) {
         const reader = new FileReader();
         reader.onload = e => {
-          const img = document.createElement("img");
-          img.src = e.target.result;
-          img.className = "image-preview";
-          previewContainer.appendChild(img);
+          imagePreview.src = e.target.result;
+          imagePreview.style.display = "inline-block";
         };
-        reader.readAsDataURL(file);
-      });
+        reader.readAsDataURL(selectedFiles[0]);
+      } else {
+        imagePreview.src = "";
+        imagePreview.style.display = "none";
+      }
     });
 
     uploadBtn.addEventListener("click", async () => {
-      if (selectedFiles.length === 0) return alert("Please choose image(s) first.");
-      const recipient = recipientInput.value.trim();
       const username = localStorage.getItem("username") || "Anonymous";
+      const recipient = recipientInput.value.trim();
+
+      if (!selectedFiles.length) return alert("Please choose image(s) first.");
       if (!recipient) return alert("Enter a recipient before sending images.");
 
       spinner.style.display = "inline-block";
+      uploadStatus.textContent = "Uploading image(s)...";
       uploadBtn.disabled = true;
 
       for (const file of selectedFiles) {
         const formData = new FormData();
         formData.append("image", file);
+
         try {
           const res = await fetch("https://api.imgur.com/3/image", {
             method: "POST",
             headers: { Authorization: "Client-ID bf20b916779ba44" },
             body: formData
           });
+
           const data = await res.json();
           if (data.success) {
             const imageUrl = data.data.link;
             const message = { imageUrl, username, to: recipient, timestamp: Date.now() };
 
             const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
-            push(recipientRef, message);
-
             const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
+
+            push(recipientRef, message);
             push(senderRef, message);
           } else {
-            console.error("Image upload failed:", file.name);
+            alert("One image upload failed.");
           }
         } catch (err) {
-          console.error("Error uploading image:", err);
+          console.error(err);
+          alert("Error uploading one image.");
         }
       }
 
-      previewContainer.innerHTML = "";
+      // Reset UI
+      spinner.style.display = "none";
+      uploadStatus.textContent = "All image(s) uploaded.";
+      uploadBtn.disabled = false;
+      imagePreview.src = "";
+      imagePreview.style.display = "none";
       imageInput.value = "";
       selectedFiles = [];
-      spinner.style.display = "none";
-      uploadBtn.disabled = false;
     });
   </script>
 </body>
