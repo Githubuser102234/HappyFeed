@@ -1,182 +1,228 @@
-<!-- ✂️ (START OF <script type="module"> block replacement) -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-  import {
-    getDatabase, ref, push, onChildAdded, update, onValue
-  } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Private Chat with Receipts</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
+    #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
+    #chatBox div { margin-bottom: 10px; padding: 8px; border-radius: 6px; position: relative; }
+    .sent { background-color: #e0e0e0; color: #000; text-align: right; }
+    .received { background-color: #d4e8fd; color: #1a2b3d; text-align: left; }
+    .receipt { font-size: 12px; color: gray; display: block; margin-top: 4px; }
+    #msgInput, #nameInput, #recipientInput { padding: 10px; width: 70%; margin-top: 10px; }
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
+    #chooseImageBtn { font-size: 24px; width: 40px; height: 40px; line-height: 30px; padding: 0; text-align: center; cursor: pointer; }
+    #imagePreview { max-width: 100px; max-height: 100px; margin-left: 10px; vertical-align: middle; display: none; border: 1px solid #ccc; border-radius: 4px; }
+  </style>
+</head>
+<body>
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
-    authDomain: "happyfeed-af48f.firebaseapp.com",
-    projectId: "happyfeed-af48f",
-    storageBucket: "happyfeed-af48f.appspot.com",
-    messagingSenderId: "456897128438",
-    appId: "1:456897128438:web:1cfc3fe338df22498549d7",
-    databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
-  };
+  <h2>Private Chat</h2>
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+  <div>
+    <input type="text" id="nameInput" placeholder="Enter your name" />
+    <button id="saveNameBtn">Save Name</button>
+  </div>
 
-  const chatBox = document.getElementById('chatBox');
-  const msgInput = document.getElementById('msgInput');
-  const sendBtn = document.getElementById('sendBtn');
-  const nameInput = document.getElementById('nameInput');
-  const recipientInput = document.getElementById('recipientInput');
-  const saveNameBtn = document.getElementById('saveNameBtn');
-  const imageInput = document.getElementById('imageInput');
-  const chooseImageBtn = document.getElementById('chooseImageBtn');
-  const uploadBtn = document.getElementById('uploadBtn');
-  const imagePreview = document.getElementById('imagePreview');
+  <div>
+    <input type="text" id="recipientInput" placeholder="Recipient's name" />
+  </div>
 
-  let selectedFile = null;
+  <div id="chatBox"></div>
 
-  saveNameBtn.addEventListener("click", () => {
-    const name = nameInput.value.trim();
-    if (name) {
-      localStorage.setItem("username", name);
-      alert("Name saved!");
-      loadMessagesFor(name);
-    }
-  });
+  <input type="text" id="msgInput" placeholder="Type a message..." />
+  <button id="sendBtn">Send</button>
 
-  sendBtn.addEventListener("click", sendMessage);
-  msgInput.addEventListener("keydown", e => {
-    if (e.key === "Enter") sendMessage();
-  });
+  <br><br>
 
-  function sendMessage() {
-    const text = msgInput.value.trim();
-    const sender = localStorage.getItem("username") || "Anonymous";
-    const recipient = recipientInput.value.trim();
-    if (!text || !recipient) return;
+  <input type="file" id="imageInput" accept="image/*" style="display:none" />
+  <button id="chooseImageBtn">+</button>
+  <img id="imagePreview" alt="Image preview" />
+  <button id="uploadBtn">Send Image</button>
 
-    const message = {
-      text,
-      username: sender,
-      to: recipient,
-      timestamp: Date.now(),
-      status: "sent"
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, update, set } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
+      authDomain: "happyfeed-af48f.firebaseapp.com",
+      projectId: "happyfeed-af48f",
+      storageBucket: "happyfeed-af48f.appspot.com",
+      messagingSenderId: "456897128438",
+      appId: "1:456897128438:web:1cfc3fe338df22498549d7",
+      databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
     };
 
-    const recipientRef = ref(db, `privateMessages/${recipient}/${sender}`);
-    const newRecipientMsg = push(recipientRef);
-    update(newRecipientMsg, { ...message, status: "delivered" });
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    const senderRef = ref(db, `privateMessages/${sender}/${recipient}`);
-    push(senderRef, message);
+    const chatBox = document.getElementById('chatBox');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const nameInput = document.getElementById('nameInput');
+    const recipientInput = document.getElementById('recipientInput');
+    const saveNameBtn = document.getElementById('saveNameBtn');
+    const imageInput = document.getElementById('imageInput');
+    const chooseImageBtn = document.getElementById('chooseImageBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const imagePreview = document.getElementById('imagePreview');
 
-    msgInput.value = "";
-  }
+    let selectedFile = null;
+    let currentUser = localStorage.getItem("username");
 
-  function renderMessage(msg, msgKey, conversationKey) {
-    const msgElement = document.createElement("div");
-    const currentUser = localStorage.getItem("username") || "Anonymous";
-    const isSent = msg.username === currentUser;
-
-    msgElement.classList.add(isSent ? "sent" : "received");
-    const directionText = isSent ? `You → ${msg.to}` : `${msg.username} → You`;
-
-    let content = "";
-
-    if (msg.imageUrl) {
-      content = `<strong>${directionText}</strong><br><img src="${msg.imageUrl}" style="max-width:200px;"><br>`;
-    } else {
-      content = `<strong>[${directionText}]</strong>: ${msg.text}`;
-    }
-
-    if (isSent && msg.status) {
-      content += `<br><small>Status: ${msg.status}</small>`;
-    }
-
-    msgElement.innerHTML = content;
-    chatBox.appendChild(msgElement);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    // If message was sent TO this user and not marked as read, mark it
-    if (!isSent && msg.status !== "read") {
-      const msgRef = ref(db, `privateMessages/${currentUser}/${conversationKey}/${msgKey}`);
-      update(msgRef, { status: "read" });
-    }
-  }
-
-  function loadMessagesFor(username) {
-    chatBox.innerHTML = "";
-    const userInboxRef = ref(db, `privateMessages/${username}`);
-
-    onChildAdded(userInboxRef, (conversationSnapshot) => {
-      const conversationKey = conversationSnapshot.key;
-      const messagesRef = ref(db, `privateMessages/${username}/${conversationKey}`);
-
-      onChildAdded(messagesRef, (msgSnapshot) => {
-        const msg = msgSnapshot.val();
-        renderMessage(msg, msgSnapshot.key, conversationKey);
-      });
+    saveNameBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim();
+      if (name) {
+        currentUser = name;
+        localStorage.setItem("username", name);
+        alert("Name saved!");
+        loadMessagesFor(name);
+      }
     });
-  }
 
-  const savedUsername = localStorage.getItem("username");
-  if (savedUsername) {
-    loadMessagesFor(savedUsername);
-    nameInput.value = savedUsername;
-  }
+    sendBtn.addEventListener("click", sendMessage);
+    msgInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") sendMessage();
+    });
 
-  chooseImageBtn.addEventListener("click", () => imageInput.click());
+    function sendMessage() {
+      const text = msgInput.value.trim();
+      const sender = currentUser || "Anonymous";
+      const recipient = recipientInput.value.trim();
+      if (!text || !recipient) return;
 
-  imageInput.addEventListener("change", () => {
-    selectedFile = imageInput.files[0];
-    if (selectedFile) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        imagePreview.src = e.target.result;
-        imagePreview.style.display = "inline-block";
+      const message = {
+        text,
+        username: sender,
+        to: recipient,
+        timestamp: Date.now(),
+        status: "sent" // Initially sent
       };
-      reader.readAsDataURL(selectedFile);
-    } else {
-      imagePreview.src = "";
-      imagePreview.style.display = "none";
+
+      const recipientRef = ref(db, `privateMessages/${recipient}/${sender}`);
+      const senderRef = ref(db, `privateMessages/${sender}/${recipient}`);
+      const msgKey = push(senderRef, message).key;
+      push(recipientRef, { ...message, status: "delivered", msgId: msgKey });
+
+      msgInput.value = "";
     }
-  });
 
-  uploadBtn.addEventListener("click", async () => {
-    if (!selectedFile) return alert("Please choose an image first.");
-    const recipient = recipientInput.value.trim();
-    const username = localStorage.getItem("username") || "Anonymous";
-    if (!recipient) return alert("Enter a recipient before sending an image.");
+    function renderMessage(msg, msgId, path) {
+      const msgElement = document.createElement("div");
+      const isSent = msg.username === currentUser;
+      msgElement.classList.add(isSent ? "sent" : "received");
 
-    const formData = new FormData();
-    formData.append("image", selectedFile);
-    try {
-      const res = await fetch("https://api.imgur.com/3/image", {
-        method: "POST",
-        headers: {
-          Authorization: "Client-ID bf20b916779ba44"
-        },
-        body: formData
+      let content = msg.text || "";
+      if (msg.imageUrl) {
+        const img = document.createElement("img");
+        img.src = msg.imageUrl;
+        img.style.maxWidth = "200px";
+        msgElement.appendChild(img);
+      } else {
+        msgElement.textContent = content;
+      }
+
+      if (isSent) {
+        const receipt = document.createElement("span");
+        receipt.className = "receipt";
+        receipt.textContent = msg.status === "read" ? "✅✅ Read" : "✅ Delivered";
+        msgElement.appendChild(receipt);
+      } else if (msg.status !== "read") {
+        const msgRef = ref(db, path + "/" + msgId);
+        update(msgRef, { status: "read" });
+      }
+
+      chatBox.appendChild(msgElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function loadMessagesFor(username) {
+      chatBox.innerHTML = "";
+      const userInboxRef = ref(db, `privateMessages/${username}`);
+
+      onChildAdded(userInboxRef, (conversationSnapshot) => {
+        const conversationKey = conversationSnapshot.key;
+        const messagesRefPath = `privateMessages/${username}/${conversationKey}`;
+        const messagesRef = ref(db, messagesRefPath);
+
+        onChildAdded(messagesRef, (msgSnapshot) => {
+          const msg = msgSnapshot.val();
+          renderMessage(msg, msgSnapshot.key, messagesRefPath);
+        });
       });
-      const data = await res.json();
-      if (data.success) {
-        const imageUrl = data.data.link;
-        const message = { imageUrl, username, to: recipient, timestamp: Date.now(), status: "sent" };
+    }
 
-        const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
-        const newRecipientMsg = push(recipientRef);
-        update(newRecipientMsg, { ...message, status: "delivered" });
+    const savedUsername = localStorage.getItem("username");
+    if (savedUsername) {
+      currentUser = savedUsername;
+      loadMessagesFor(savedUsername);
+      nameInput.value = savedUsername;
+    }
 
-        const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
-        push(senderRef, message);
+    chooseImageBtn.addEventListener("click", () => imageInput.click());
 
+    imageInput.addEventListener("change", () => {
+      selectedFile = imageInput.files[0];
+      if (selectedFile) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          imagePreview.src = e.target.result;
+          imagePreview.style.display = "inline-block";
+        };
+        reader.readAsDataURL(selectedFile);
+      } else {
         imagePreview.src = "";
         imagePreview.style.display = "none";
-        imageInput.value = "";
-        selectedFile = null;
-      } else {
-        alert("Image upload failed.");
       }
-    } catch (err) {
-      alert("Error uploading image.");
-      console.error(err);
-    }
-  });
-</script>
-<!-- ✂️ (END OF <script type="module"> block replacement) -->
+    });
+
+    uploadBtn.addEventListener("click", async () => {
+      if (!selectedFile) return alert("Please choose an image first.");
+      const recipient = recipientInput.value.trim();
+      const username = currentUser || "Anonymous";
+      if (!recipient) return alert("Enter a recipient before sending an image.");
+
+      const formData = new FormData();
+      formData.append("image", selectedFile);
+
+      try {
+        const res = await fetch("https://api.imgur.com/3/image", {
+          method: "POST",
+          headers: { Authorization: "Client-ID bf20b916779ba44" },
+          body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          const imageUrl = data.data.link;
+          const message = {
+            imageUrl,
+            username,
+            to: recipient,
+            timestamp: Date.now(),
+            status: "sent"
+          };
+
+          const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
+          const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
+          const msgKey = push(senderRef, message).key;
+          push(recipientRef, { ...message, status: "delivered", msgId: msgKey });
+
+          imagePreview.src = "";
+          imagePreview.style.display = "none";
+          imageInput.value = "";
+          selectedFile = null;
+        } else {
+          alert("Image upload failed.");
+        }
+      } catch (err) {
+        alert("Error uploading image.");
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
