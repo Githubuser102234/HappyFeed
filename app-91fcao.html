@@ -16,7 +16,7 @@
   <div id="password-screen">
     <p>Enter admin password:</p>
     <input type="password" id="admin-password" />
-    <button onclick="checkPassword()">Enter</button>
+    <button id="enter-button">Enter</button>
     <p id="error-msg" style="color: red;"></p>
   </div>
 
@@ -26,8 +26,8 @@
   </div>
 
   <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
   <script>
     // ✅ Firebase config
@@ -41,12 +41,18 @@
       databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
     };
 
+    // ✅ Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // ✅ Admin password
     const ADMIN_PASSWORD = "24681012ear";
 
-    // ✅ Password check
+    // ✅ Wait for DOM to be fully loaded
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("enter-button").addEventListener("click", checkPassword);
+    });
+
     function checkPassword() {
       console.log("Checking password...");
       const input = document.getElementById("admin-password").value;
@@ -68,7 +74,6 @@
       document.getElementById("messages").innerHTML = "";
     }
 
-    // ✅ Load and display messages
     function loadMessages() {
       const rootRef = db.ref("privateMessages");
       rootRef.on("value", (snapshot) => {
@@ -98,7 +103,6 @@
       });
     }
 
-    // ✅ Delete a message
     function deleteMessage(recipient, sender, msgId) {
       const path = `privateMessages/${recipient}/${sender}/${msgId}`;
       if (confirm("Delete this message?")) {
