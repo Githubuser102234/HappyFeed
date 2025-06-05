@@ -8,26 +8,40 @@
     body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
     #chatBox div { margin-bottom: 10px; padding: 8px; border-radius: 6px; }
-    .sent { background-color: #e0e0e0; color: #000; }       /* Gray for sent */
-    .received { background-color: #d4e8fd; color: #1a2b3d; } /* Blue for received */
-    #msgInput, #nameInput, #recipientInput { padding: 10px; width: 70%; margin-top: 10px; }
-    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #returnBtn { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
-    #chooseImageBtn {
-      font-size: 24px;
-      width: 40px;
-      height: 40px;
-      line-height: 30px;
-      padding: 0;
-      text-align: center;
+    .sent { background-color: #e0e0e0; color: #000; }
+    .received { background-color: #d4e8fd; color: #1a2b3d; }
+
+    #msgInput, #nameInput, #recipientInput {
+      padding: 10px; width: 70%; margin-top: 10px;
     }
-    #imagePreview {
-      max-width: 100px;
-      max-height: 100px;
-      margin-left: 10px;
-      vertical-align: middle;
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #returnBtn {
+      padding: 10px 20px; margin-top: 10px; cursor: pointer;
+    }
+
+    #chooseImageBtn {
+      font-size: 24px; width: 40px; height: 40px;
+      line-height: 30px; padding: 0; text-align: center;
+    }
+
+    #imagePreviewContainer img {
+      max-width: 100px; max-height: 100px; margin: 5px;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+
+    #spinner {
       display: none;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      margin-top: 10px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -52,10 +66,11 @@
 
   <br><br>
 
-  <input type="file" id="imageInput" accept="image/*" style="display:none" />
+  <input type="file" id="imageInput" accept="image/*" multiple style="display:none" />
   <button id="chooseImageBtn">+</button>
-  <img id="imagePreview" alt="Image preview" />
+  <div id="imagePreviewContainer"></div>
   <button id="uploadBtn">Send Image</button>
+  <div id="spinner"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
@@ -83,10 +98,11 @@
     const imageInput = document.getElementById('imageInput');
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
-    const imagePreview = document.getElementById('imagePreview');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
     const returnBtn = document.getElementById('returnBtn');
+    const spinner = document.getElementById('spinner');
 
-    let selectedFile = null;
+    let selectedFiles = [];
 
     returnBtn.addEventListener("click", () => {
       window.location.href = "https://githubuser102234.github.io/HappyFeed/";
@@ -131,11 +147,8 @@
     function renderMessage(msg) {
       const msgElement = document.createElement("div");
       const currentUser = localStorage.getItem("username") || "Anonymous";
-
       const isSent = msg.username === currentUser;
-      const directionText = isSent
-        ? `You → ${msg.to}`
-        : `${msg.username} → You`;
+      const directionText = isSent ? `You → ${msg.to}` : `${msg.username} → You`;
 
       msgElement.classList.add(isSent ? "sent" : "received");
 
@@ -178,58 +191,58 @@
     });
 
     imageInput.addEventListener("change", () => {
-      selectedFile = imageInput.files[0];
-      if (selectedFile) {
+      selectedFiles = Array.from(imageInput.files);
+      imagePreviewContainer.innerHTML = "";
+      selectedFiles.forEach(file => {
         const reader = new FileReader();
         reader.onload = e => {
-          imagePreview.src = e.target.result;
-          imagePreview.style.display = "inline-block";
+          const img = document.createElement("img");
+          img.src = e.target.result;
+          imagePreviewContainer.appendChild(img);
         };
-        reader.readAsDataURL(selectedFile);
-      } else {
-        imagePreview.src = "";
-        imagePreview.style.display = "none";
-      }
+        reader.readAsDataURL(file);
+      });
     });
 
     uploadBtn.addEventListener("click", async () => {
-      if (!selectedFile) return alert("Please choose an image first.");
       const recipient = recipientInput.value.trim();
       const username = localStorage.getItem("username") || "Anonymous";
-      if (!recipient) return alert("Enter a recipient before sending an image.");
+      if (!selectedFiles.length) return alert("Please choose at least one image.");
+      if (!recipient) return alert("Enter a recipient before sending images.");
 
-      const formData = new FormData();
-      formData.append("image", selectedFile);
-      try {
-        const res = await fetch("https://api.imgur.com/3/image", {
-          method: "POST",
-          headers: {
-            Authorization: "Client-ID bf20b916779ba44"
-          },
-          body: formData
-        });
-        const data = await res.json();
-        if (data.success) {
-          const imageUrl = data.data.link;
-          const message = { imageUrl, username, to: recipient, timestamp: Date.now() };
+      spinner.style.display = "block";
+      uploadBtn.disabled = true;
 
-          const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
-          push(recipientRef, message);
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append("image", file);
 
-          const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
-          push(senderRef, message);
+        try {
+          const res = await fetch("https://api.imgur.com/3/image", {
+            method: "POST",
+            headers: { Authorization: "Client-ID bf20b916779ba44" },
+            body: formData
+          });
+          const data = await res.json();
+          if (data.success) {
+            const imageUrl = data.data.link;
+            const message = { imageUrl, username, to: recipient, timestamp: Date.now() };
 
-          imagePreview.src = "";
-          imagePreview.style.display = "none";
-          imageInput.value = "";
-          selectedFile = null;
-        } else {
-          alert("Image upload failed.");
+            const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
+            const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
+            push(recipientRef, message);
+            push(senderRef, message);
+          }
+        } catch (err) {
+          console.error("Upload failed", err);
         }
-      } catch (err) {
-        alert("Error uploading image.");
-        console.error(err);
       }
+
+      imageInput.value = "";
+      selectedFiles = [];
+      imagePreviewContainer.innerHTML = "";
+      spinner.style.display = "none";
+      uploadBtn.disabled = false;
     });
   </script>
 </body>
