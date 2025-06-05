@@ -105,13 +105,21 @@
       const recipient = recipientInput.value.trim();
       if (!text || !recipient) return;
 
-      const privateRef = ref(db, `privateMessages/${recipient}/${sender}`);
-      push(privateRef, {
+      const message = {
         text,
         username: sender,
         to: recipient,
         timestamp: Date.now()
-      });
+      };
+
+      // Save message to recipient's inbox
+      const recipientRef = ref(db, `privateMessages/${recipient}/${sender}`);
+      push(recipientRef, message);
+
+      // Save message to sender's inbox
+      const senderRef = ref(db, `privateMessages/${sender}/${recipient}`);
+      push(senderRef, message);
+
       msgInput.value = "";
     }
 
@@ -145,6 +153,7 @@
     const savedUsername = localStorage.getItem("username");
     if (savedUsername) {
       loadMessagesFor(savedUsername);
+      nameInput.value = savedUsername;
     }
 
     chooseImageBtn.addEventListener("click", () => {
@@ -185,8 +194,16 @@
         const data = await res.json();
         if (data.success) {
           const imageUrl = data.data.link;
-          const privateRef = ref(db, `privateMessages/${recipient}/${username}`);
-          push(privateRef, { imageUrl, username, to: recipient, timestamp: Date.now() });
+          const message = { imageUrl, username, to: recipient, timestamp: Date.now() };
+
+          // Save image message to recipient's inbox
+          const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
+          push(recipientRef, message);
+
+          // Save image message to sender's inbox
+          const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
+          push(senderRef, message);
+
           imagePreview.src = "";
           imagePreview.style.display = "none";
           imageInput.value = "";
