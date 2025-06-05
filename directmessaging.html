@@ -7,10 +7,9 @@
   <style>
     body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
-    #chatBox div { margin-bottom: 10px; padding: 8px; border-radius: 6px; position: relative; }
-    .sent { background-color: #e0e0e0; color: #000; }
-    .received { background-color: #d4e8fd; color: #1a2b3d; }
-    .status { font-size: 10px; color: #555; position: absolute; bottom: 4px; right: 8px; }
+    #chatBox div { margin-bottom: 10px; padding: 8px; border-radius: 6px; }
+    .sent { background-color: #e0e0e0; color: #000; }       /* Gray for sent */
+    .received { background-color: #d4e8fd; color: #1a2b3d; } /* Blue for received */
     #msgInput, #nameInput, #recipientInput { padding: 10px; width: 70%; margin-top: 10px; }
     #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
     #chooseImageBtn {
@@ -61,11 +60,6 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-
-    const supabaseUrl = "https://zrihhqirdacczfbhcwpc.supabase.co";
-    const supabaseKey = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyaWhocWlyZGFjY3pmYmhjd3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwODY3NDIsImV4cCI6MjA2NDY2Mjc0Mn0.8GWDvZADjTLhz6sLHUtBvKcFtotAEEqbbwijyIyZ4dg;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const firebaseConfig = {
       apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
@@ -107,60 +101,38 @@
       if (e.key === "Enter") sendMessage();
     });
 
-    async function sendMessage() {
+    function sendMessage() {
       const text = msgInput.value.trim();
       const sender = localStorage.getItem("username") || "Anonymous";
       const recipient = recipientInput.value.trim();
       if (!text || !recipient) return;
 
-      const timestamp = Date.now();
-      const message = { text, username: sender, to: recipient, timestamp };
+      const message = {
+        text,
+        username: sender,
+        to: recipient,
+        timestamp: Date.now()
+      };
 
       const recipientRef = ref(db, `privateMessages/${recipient}/${sender}`);
       push(recipientRef, message);
+
       const senderRef = ref(db, `privateMessages/${sender}/${recipient}`);
       push(senderRef, message);
-
-      await supabase.from("message_status").insert([
-        { sender, recipient, timestamp, delivered: true, read: false }
-      ]);
 
       msgInput.value = "";
     }
 
-    async function updateReadStatus(sender, recipient, timestamp) {
-      await supabase
-        .from("message_status")
-        .update({ read: true })
-        .eq("sender", sender)
-        .eq("recipient", recipient)
-        .eq("timestamp", timestamp);
-    }
-
-    async function getStatus(sender, recipient, timestamp) {
-      const { data } = await supabase
-        .from("message_status")
-        .select("delivered, read")
-        .eq("sender", sender)
-        .eq("recipient", recipient)
-        .eq("timestamp", timestamp)
-        .single();
-      return data || { delivered: false, read: false };
-    }
-
-    async function renderMessage(msg) {
+    function renderMessage(msg) {
       const msgElement = document.createElement("div");
       const currentUser = localStorage.getItem("username") || "Anonymous";
+
       const isSent = msg.username === currentUser;
-      const directionText = isSent ? `You → ${msg.to}` : `${msg.username} → You`;
+      const directionText = isSent
+        ? `You → ${msg.to}`
+        : `${msg.username} → You`;
 
       msgElement.classList.add(isSent ? "sent" : "received");
-
-      if (!isSent) {
-        await updateReadStatus(msg.username, currentUser, msg.timestamp);
-      }
-
-      const status = isSent ? await getStatus(currentUser, msg.to, msg.timestamp) : null;
 
       if (msg.imageUrl) {
         const img = document.createElement("img");
@@ -169,15 +141,7 @@
         msgElement.innerHTML = `<strong>${directionText}</strong><br>`;
         msgElement.appendChild(img);
       } else {
-        msgElement.innerHTML = `[${directionText}]: ${msg.text}`;
-      }
-
-      if (status) {
-        const statusText = status.read ? "✓✓ Read" : status.delivered ? "✓ Delivered" : "";
-        const statusDiv = document.createElement("div");
-        statusDiv.className = "status";
-        statusDiv.textContent = statusText;
-        msgElement.appendChild(statusDiv);
+        msgElement.textContent = `[${directionText}]: ${msg.text}`;
       }
 
       chatBox.appendChild(msgElement);
@@ -187,12 +151,13 @@
     function loadMessagesFor(username) {
       chatBox.innerHTML = "";
       const userInboxRef = ref(db, `privateMessages/${username}`);
+
       onChildAdded(userInboxRef, (conversationSnapshot) => {
         const conversationKey = conversationSnapshot.key;
         const messagesRef = ref(db, `privateMessages/${username}/${conversationKey}`);
-        onChildAdded(messagesRef, async (msgSnapshot) => {
+        onChildAdded(messagesRef, (msgSnapshot) => {
           const msg = msgSnapshot.val();
-          await renderMessage(msg);
+          renderMessage(msg);
         });
       });
     }
@@ -241,17 +206,13 @@
         const data = await res.json();
         if (data.success) {
           const imageUrl = data.data.link;
-          const timestamp = Date.now();
-          const message = { imageUrl, username, to: recipient, timestamp };
+          const message = { imageUrl, username, to: recipient, timestamp: Date.now() };
 
           const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
           push(recipientRef, message);
+
           const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
           push(senderRef, message);
-
-          await supabase.from("message_status").insert([
-            { sender: username, recipient, timestamp, delivered: true, read: false }
-          ]);
 
           imagePreview.src = "";
           imagePreview.style.display = "none";
