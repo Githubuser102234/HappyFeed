@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Private Chat with Receipts</title>
+  <title>Private Chat (Supabase)</title>
   <style>
     body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
@@ -43,21 +43,11 @@
   <button id="uploadBtn">Send Image</button>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, update, set } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
-      authDomain: "happyfeed-af48f.firebaseapp.com",
-      projectId: "happyfeed-af48f",
-      storageBucket: "happyfeed-af48f.appspot.com",
-      messagingSenderId: "456897128438",
-      appId: "1:456897128438:web:1cfc3fe338df22498549d7",
-      databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const supabaseUrl = 'https://zrihhqirdacczfbhcwpc.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyaWhocWlyZGFjY3pmYmhjd3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwODY3NDIsImV4cCI6MjA2NDY2Mjc0Mn0.8GWDvZADjTLhz6sLHUtBvKcFtotAEEqbbwijyIyZ4dg';
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const chatBox = document.getElementById('chatBox');
     const msgInput = document.getElementById('msgInput');
@@ -70,16 +60,16 @@
     const uploadBtn = document.getElementById('uploadBtn');
     const imagePreview = document.getElementById('imagePreview');
 
-    let selectedFile = null;
     let currentUser = localStorage.getItem("username");
+    let selectedFile = null;
 
-    saveNameBtn.addEventListener("click", () => {
+    saveNameBtn.addEventListener("click", async () => {
       const name = nameInput.value.trim();
       if (name) {
         currentUser = name;
         localStorage.setItem("username", name);
         alert("Name saved!");
-        loadMessagesFor(name);
+        loadMessages();
       }
     });
 
@@ -88,78 +78,81 @@
       if (e.key === "Enter") sendMessage();
     });
 
-    function sendMessage() {
+    async function sendMessage() {
       const text = msgInput.value.trim();
-      const sender = currentUser || "Anonymous";
-      const recipient = recipientInput.value.trim();
-      if (!text || !recipient) return;
+      const to = recipientInput.value.trim();
+      const from = currentUser;
 
-      const message = {
+      if (!text || !from || !to) return;
+
+      const { error } = await supabase.from('messages').insert({
         text,
-        username: sender,
-        to: recipient,
-        timestamp: Date.now(),
-        status: "sent" // Initially sent
-      };
+        from_user: from,
+        to_user: to,
+        status: 'sent'
+      });
 
-      const recipientRef = ref(db, `privateMessages/${recipient}/${sender}`);
-      const senderRef = ref(db, `privateMessages/${sender}/${recipient}`);
-      const msgKey = push(senderRef, message).key;
-      push(recipientRef, { ...message, status: "delivered", msgId: msgKey });
-
+      if (error) console.error("Send error:", error);
       msgInput.value = "";
     }
 
-    function renderMessage(msg, msgId, path) {
-      const msgElement = document.createElement("div");
-      const isSent = msg.username === currentUser;
-      msgElement.classList.add(isSent ? "sent" : "received");
+    async function loadMessages() {
+      chatBox.innerHTML = "";
 
-      let content = msg.text || "";
-      if (msg.imageUrl) {
+      if (!currentUser) return;
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`from_user.eq.${currentUser},to_user.eq.${currentUser}`)
+        .order('created_at', { ascending: true });
+
+      if (error) return console.error(error);
+
+      data.forEach(msg => renderMessage(msg));
+
+      supabase
+        .channel('messages')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+          const msg = payload.new;
+          if (
+            msg.from_user === currentUser ||
+            msg.to_user === currentUser
+          ) {
+            renderMessage(msg, true);
+          }
+        })
+        .subscribe();
+    }
+
+    async function renderMessage(msg, isRealtime = false) {
+      const isSent = msg.from_user === currentUser;
+      const msgDiv = document.createElement("div");
+      msgDiv.className = isSent ? "sent" : "received";
+
+      if (msg.image_url) {
         const img = document.createElement("img");
-        img.src = msg.imageUrl;
+        img.src = msg.image_url;
         img.style.maxWidth = "200px";
-        msgElement.appendChild(img);
+        msgDiv.appendChild(img);
       } else {
-        msgElement.textContent = content;
+        msgDiv.textContent = msg.text;
       }
 
       if (isSent) {
         const receipt = document.createElement("span");
         receipt.className = "receipt";
         receipt.textContent = msg.status === "read" ? "✅✅ Read" : "✅ Delivered";
-        msgElement.appendChild(receipt);
+        msgDiv.appendChild(receipt);
       } else if (msg.status !== "read") {
-        const msgRef = ref(db, path + "/" + msgId);
-        update(msgRef, { status: "read" });
+        await supabase
+          .from('messages')
+          .update({ status: 'read' })
+          .eq('id', msg.id);
       }
 
-      chatBox.appendChild(msgElement);
+      chatBox.appendChild(msgDiv);
       chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    function loadMessagesFor(username) {
-      chatBox.innerHTML = "";
-      const userInboxRef = ref(db, `privateMessages/${username}`);
-
-      onChildAdded(userInboxRef, (conversationSnapshot) => {
-        const conversationKey = conversationSnapshot.key;
-        const messagesRefPath = `privateMessages/${username}/${conversationKey}`;
-        const messagesRef = ref(db, messagesRefPath);
-
-        onChildAdded(messagesRef, (msgSnapshot) => {
-          const msg = msgSnapshot.val();
-          renderMessage(msg, msgSnapshot.key, messagesRefPath);
-        });
-      });
-    }
-
-    const savedUsername = localStorage.getItem("username");
-    if (savedUsername) {
-      currentUser = savedUsername;
-      loadMessagesFor(savedUsername);
-      nameInput.value = savedUsername;
     }
 
     chooseImageBtn.addEventListener("click", () => imageInput.click());
@@ -174,55 +167,47 @@
         };
         reader.readAsDataURL(selectedFile);
       } else {
-        imagePreview.src = "";
         imagePreview.style.display = "none";
       }
     });
 
     uploadBtn.addEventListener("click", async () => {
-      if (!selectedFile) return alert("Please choose an image first.");
-      const recipient = recipientInput.value.trim();
-      const username = currentUser || "Anonymous";
-      if (!recipient) return alert("Enter a recipient before sending an image.");
+      const to = recipientInput.value.trim();
+      const from = currentUser;
 
-      const formData = new FormData();
-      formData.append("image", selectedFile);
+      if (!selectedFile || !to || !from) return alert("Set a recipient and image first.");
 
-      try {
-        const res = await fetch("https://api.imgur.com/3/image", {
-          method: "POST",
-          headers: { Authorization: "Client-ID bf20b916779ba44" },
-          body: formData
-        });
-        const data = await res.json();
+      const filename = `${Date.now()}_${selectedFile.name}`;
+      const { data, error } = await supabase.storage
+        .from('chat-images')
+        .upload(filename, selectedFile);
 
-        if (data.success) {
-          const imageUrl = data.data.link;
-          const message = {
-            imageUrl,
-            username,
-            to: recipient,
-            timestamp: Date.now(),
-            status: "sent"
-          };
+      if (error) return alert("Upload failed.");
 
-          const senderRef = ref(db, `privateMessages/${username}/${recipient}`);
-          const recipientRef = ref(db, `privateMessages/${recipient}/${username}`);
-          const msgKey = push(senderRef, message).key;
-          push(recipientRef, { ...message, status: "delivered", msgId: msgKey });
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('chat-images')
+        .getPublicUrl(filename);
 
-          imagePreview.src = "";
-          imagePreview.style.display = "none";
-          imageInput.value = "";
-          selectedFile = null;
-        } else {
-          alert("Image upload failed.");
-        }
-      } catch (err) {
-        alert("Error uploading image.");
-        console.error(err);
-      }
+      const imageUrl = publicUrlData.publicUrl;
+
+      await supabase.from('messages').insert({
+        image_url: imageUrl,
+        from_user: from,
+        to_user: to,
+        status: 'sent'
+      });
+
+      imagePreview.src = "";
+      imagePreview.style.display = "none";
+      selectedFile = null;
+      imageInput.value = "";
     });
+
+    if (currentUser) {
+      nameInput.value = currentUser;
+      loadMessages();
+    }
   </script>
 </body>
 </html>
