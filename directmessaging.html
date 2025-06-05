@@ -3,31 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Private Chat (Supabase)</title>
+  <title>Firebase + Supabase Chat</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
-    #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
-    #chatBox div { margin-bottom: 10px; padding: 8px; border-radius: 6px; position: relative; }
-    .sent { background-color: #e0e0e0; color: #000; text-align: right; }
-    .received { background-color: #d4e8fd; color: #1a2b3d; text-align: left; }
+    body { font-family: Arial; background: #f4f4f4; padding: 20px; }
+    #chatBox { background: white; border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; margin-bottom: 10px; }
+    #chatBox div { padding: 8px; margin-bottom: 10px; border-radius: 6px; }
+    .sent { background: #e0e0e0; text-align: right; }
+    .received { background: #d4e8fd; text-align: left; }
     .receipt { font-size: 12px; color: gray; display: block; margin-top: 4px; }
-    #msgInput, #nameInput, #recipientInput { padding: 10px; width: 70%; margin-top: 10px; }
-    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
-    #chooseImageBtn { font-size: 24px; width: 40px; height: 40px; line-height: 30px; padding: 0; text-align: center; cursor: pointer; }
-    #imagePreview { max-width: 100px; max-height: 100px; margin-left: 10px; vertical-align: middle; display: none; border: 1px solid #ccc; border-radius: 4px; }
+    #msgInput, #recipientInput { width: 60%; padding: 10px; }
+    #sendBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; }
+    #chooseImageBtn { font-size: 24px; width: 40px; height: 40px; padding: 0; line-height: 30px; }
+    #imagePreview { max-width: 100px; max-height: 100px; display: none; margin-left: 10px; border: 1px solid #ccc; border-radius: 4px; }
   </style>
 </head>
 <body>
 
-  <h2>Private Chat</h2>
+  <h2>Firebase + Supabase Chat</h2>
 
   <div>
-    <input type="text" id="nameInput" placeholder="Enter your name" />
-    <button id="saveNameBtn">Save Name</button>
+    <button id="loginBtn">Sign In with Firebase</button>
+    <span id="userDisplay"></span>
   </div>
 
   <div>
-    <input type="text" id="recipientInput" placeholder="Recipient's name" />
+    <input type="text" id="recipientInput" placeholder="Recipient's username" />
   </div>
 
   <div id="chatBox"></div>
@@ -39,38 +39,57 @@
 
   <input type="file" id="imageInput" accept="image/*" style="display:none" />
   <button id="chooseImageBtn">+</button>
-  <img id="imagePreview" alt="Image preview" />
+  <img id="imagePreview" />
   <button id="uploadBtn">Send Image</button>
 
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+
+  <!-- Supabase -->
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
+      authDomain: "happyfeed-af48f.firebaseapp.com",
+      projectId: "happyfeed-af48f",
+      storageBucket: "happyfeed-af48f.appspot.com",
+      messagingSenderId: "456897128438",
+      appId: "1:456897128438:web:1cfc3fe338df22498549d7",
+      databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // --- Supabase Config ---
     const supabaseUrl = 'https://zrihhqirdacczfbhcwpc.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyaWhocWlyZGFjY3pmYmhjd3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwODY3NDIsImV4cCI6MjA2NDY2Mjc0Mn0.8GWDvZADjTLhz6sLHUtBvKcFtotAEEqbbwijyIyZ4dg';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const chatBox = document.getElementById('chatBox');
+    // Elements
+    const loginBtn = document.getElementById('loginBtn');
+    const userDisplay = document.getElementById('userDisplay');
     const msgInput = document.getElementById('msgInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const nameInput = document.getElementById('nameInput');
     const recipientInput = document.getElementById('recipientInput');
-    const saveNameBtn = document.getElementById('saveNameBtn');
-    const imageInput = document.getElementById('imageInput');
+    const chatBox = document.getElementById('chatBox');
+    const sendBtn = document.getElementById('sendBtn');
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
+    const imageInput = document.getElementById('imageInput');
     const imagePreview = document.getElementById('imagePreview');
 
-    let currentUser = localStorage.getItem("username");
+    let currentUser = null;
     let selectedFile = null;
 
-    saveNameBtn.addEventListener("click", async () => {
-      const name = nameInput.value.trim();
-      if (name) {
-        currentUser = name;
-        localStorage.setItem("username", name);
-        alert("Name saved!");
+    loginBtn.addEventListener("click", () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).then(result => {
+        currentUser = result.user.displayName;
+        userDisplay.textContent = "Logged in as: " + currentUser;
         loadMessages();
-      }
+      });
     });
 
     sendBtn.addEventListener("click", sendMessage);
@@ -98,7 +117,6 @@
 
     async function loadMessages() {
       chatBox.innerHTML = "";
-
       if (!currentUser) return;
 
       const { data, error } = await supabase
@@ -108,7 +126,6 @@
         .order('created_at', { ascending: true });
 
       if (error) return console.error(error);
-
       data.forEach(msg => renderMessage(msg));
 
       supabase
@@ -203,11 +220,6 @@
       selectedFile = null;
       imageInput.value = "";
     });
-
-    if (currentUser) {
-      nameInput.value = currentUser;
-      loadMessages();
-    }
   </script>
 </body>
 </html>
