@@ -1,102 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Admin - Message Manager</title>
-  <style>
-    body { font-family: sans-serif; background: #f0f0f0; padding: 2rem; }
-    .message { background: #fff; border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; }
-    #admin-ui { display: none; }
-    button { margin-top: 5px; }
-  </style>
+  <meta charset="UTF-8">
+  <title>Test Admin</title>
 </head>
 <body>
-  <h1>Admin - Message Manager</h1>
+  <h1>Admin Login Test</h1>
+  <input type="password" id="admin-password" placeholder="Password" />
+  <button onclick="checkPassword()">Enter</button>
+  <p id="error-msg" style="color: red;"></p>
 
-  <div id="password-screen">
-    <p>Enter admin password:</p>
-    <input type="password" id="admin-password" />
-    <button onclick="checkPassword()">Enter</button>
-    <p id="error-msg" style="color: red;"></p>
+  <div id="admin-ui" style="display: none;">
+    <p>Welcome to the admin area.</p>
   </div>
-
-  <div id="admin-ui">
-    <button onclick="logout()">Logout</button>
-    <div id="messages"></div>
-  </div>
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
-      authDomain: "happyfeed-af48f.firebaseapp.com",
-      projectId: "happyfeed-af48f",
-      storageBucket: "happyfeed-af48f.appspot.com",
-      messagingSenderId: "456897128438",
-      appId: "1:456897128438:web:1cfc3fe338df22498549d7",
-      databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
     const ADMIN_PASSWORD = "24681012ear";
 
     function checkPassword() {
+      console.log("Checking password...");
       const input = document.getElementById("admin-password").value;
       if (input === ADMIN_PASSWORD) {
-        document.getElementById("password-screen").style.display = "none";
+        console.log("Correct password");
         document.getElementById("admin-ui").style.display = "block";
-        loadMessages();
       } else {
+        console.log("Wrong password");
         document.getElementById("error-msg").innerText = "Incorrect password.";
-      }
-    }
-
-    function logout() {
-      document.getElementById("admin-ui").style.display = "none";
-      document.getElementById("password-screen").style.display = "block";
-      document.getElementById("admin-password").value = "";
-    }
-
-    function loadMessages() {
-      const rootRef = db.ref("privateMessages");
-      rootRef.on("value", (snapshot) => {
-        const container = document.getElementById("messages");
-        container.innerHTML = "";
-        const data = snapshot.val();
-        if (!data) {
-          container.innerHTML = "<p>No messages found.</p>";
-          return;
-        }
-
-        Object.entries(data).forEach(([recipient, senders]) => {
-          Object.entries(senders).forEach(([sender, msgs]) => {
-            Object.entries(msgs).forEach(([msgId, msg]) => {
-              const div = document.createElement("div");
-              div.className = "message";
-              div.innerHTML = `
-                <strong>From:</strong> ${sender}<br>
-                <strong>To:</strong> ${recipient}<br>
-                <strong>Message:</strong> ${msg.text || "⛔ [image or empty]"}<br>
-                <button onclick="deleteMessage('${recipient}', '${sender}', '${msgId}')">Delete</button>
-              `;
-              container.appendChild(div);
-            });
-          });
-        });
-      });
-    }
-
-    function deleteMessage(recipient, sender, msgId) {
-      const path = `privateMessages/${recipient}/${sender}/${msgId}`;
-      if (confirm("Delete this message?")) {
-        db.ref(path).remove()
-          .then(() => alert("Message deleted."))
-          .catch(console.error);
       }
     }
   </script>
