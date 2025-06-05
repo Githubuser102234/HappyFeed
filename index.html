@@ -117,12 +117,14 @@
       }
     }
 
-    // 👇 REPLACED renderMessage TO FORCE BROKEN IMAGE DISPLAY
     function renderMessage(msg) {
       const msgElement = document.createElement("div");
       if (msg.imageUrl) {
-        msgElement.innerHTML = `<strong>${msg.username || "Anonymous"}</strong>:<br>
-          <img src="invalid-url.png" alt="Blocked image" style="max-width: 200px; filter: grayscale(100%) opacity(0.5);" />`;
+        const img = document.createElement("img");
+        img.src = msg.imageUrl;
+        img.style.maxWidth = "200px";
+        msgElement.innerHTML = `<strong>${msg.username || "Anonymous"}</strong>:<br>`;
+        msgElement.appendChild(img);
       } else {
         msgElement.textContent = `[${msg.username || "Anonymous"}]: ${msg.text}`;
       }
