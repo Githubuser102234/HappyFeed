@@ -141,11 +141,17 @@
     function loadMessagesFor(username) {
       chatBox.innerHTML = "";
       const userInboxRef = ref(db, `privateMessages/${username}`);
-      onChildAdded(userInboxRef, snapshot => {
-        const convo = snapshot.val();
-        for (const msgId in convo) {
-          renderMessage(convo[msgId]);
-        }
+
+      // Listen for new conversations (users chatting with you)
+      onChildAdded(userInboxRef, (conversationSnapshot) => {
+        const conversationKey = conversationSnapshot.key;
+
+        // Listen for new messages inside each conversation
+        const messagesRef = ref(db, `privateMessages/${username}/${conversationKey}`);
+        onChildAdded(messagesRef, (msgSnapshot) => {
+          const msg = msgSnapshot.val();
+          renderMessage(msg);
+        });
       });
     }
 
