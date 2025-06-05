@@ -28,26 +28,24 @@
       text-align: center;
     }
 
-    #imagePreview {
+    #imagePreviewContainer img {
       max-width: 100px;
       max-height: 100px;
-      margin-left: 10px;
+      margin: 5px;
       vertical-align: middle;
-      display: none;
       border: 1px solid #ccc;
       border-radius: 4px;
     }
 
     .spinner {
       display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(0, 0, 0, 0.2);
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ccc;
       border-top-color: #333;
       border-radius: 50%;
-      animation: spin 0.6s linear infinite;
+      animation: spin 1s linear infinite;
       vertical-align: middle;
-      margin-left: 10px;
     }
 
     @keyframes spin {
@@ -55,10 +53,10 @@
     }
 
     #uploadStatus {
-      color: gray;
-      margin-left: 8px;
+      display: none;
+      margin-top: 10px;
+      color: #555;
       font-size: 14px;
-      vertical-align: middle;
     }
   </style>
 </head>
@@ -83,12 +81,11 @@
 
   <br><br>
 
-  <input type="file" id="imageInput" accept="image/*" multiple style="display:none" />
+  <input type="file" id="imageInput" accept="image/*" multiple style="display: none;" />
   <button id="chooseImageBtn">+</button>
-  <img id="imagePreview" alt="Image preview" />
-  <button id="uploadBtn">Send Image</button>
-  <span id="spinner" class="spinner" style="display:none;"></span>
-  <span id="uploadStatus"></span>
+  <div id="imagePreviewContainer"></div>
+  <button id="uploadBtn">Send Image(s)</button>
+  <div id="uploadStatus"><span class="spinner"></span> Uploading image(s)...</div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
@@ -116,10 +113,9 @@
     const imageInput = document.getElementById('imageInput');
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
-    const imagePreview = document.getElementById('imagePreview');
-    const returnBtn = document.getElementById('returnBtn');
-    const spinner = document.getElementById('spinner');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
     const uploadStatus = document.getElementById('uploadStatus');
+    const returnBtn = document.getElementById('returnBtn');
 
     let selectedFiles = [];
 
@@ -212,29 +208,28 @@
 
     imageInput.addEventListener("change", () => {
       selectedFiles = Array.from(imageInput.files);
-      if (selectedFiles.length > 0) {
+      imagePreviewContainer.innerHTML = '';
+      selectedFiles.forEach(file => {
         const reader = new FileReader();
         reader.onload = e => {
-          imagePreview.src = e.target.result;
-          imagePreview.style.display = "inline-block";
+          const img = document.createElement("img");
+          img.src = e.target.result;
+          imagePreviewContainer.appendChild(img);
         };
-        reader.readAsDataURL(selectedFiles[0]);
-      } else {
-        imagePreview.src = "";
-        imagePreview.style.display = "none";
-      }
+        reader.readAsDataURL(file);
+      });
     });
 
     uploadBtn.addEventListener("click", async () => {
       const username = localStorage.getItem("username") || "Anonymous";
       const recipient = recipientInput.value.trim();
 
-      if (!selectedFiles.length) return alert("Please choose image(s) first.");
+      if (!selectedFiles.length) return alert("Please choose one or more images first.");
       if (!recipient) return alert("Enter a recipient before sending images.");
 
-      spinner.style.display = "inline-block";
-      uploadStatus.textContent = "Uploading image(s)...";
       uploadBtn.disabled = true;
+      uploadStatus.style.display = "block";
+      uploadStatus.innerHTML = '<span class="spinner"></span> Uploading image(s)...';
 
       for (const file of selectedFiles) {
         const formData = new FormData();
@@ -258,22 +253,22 @@
             push(recipientRef, message);
             push(senderRef, message);
           } else {
-            alert("One image upload failed.");
+            console.warn("Failed to upload image:", file.name);
           }
         } catch (err) {
-          console.error(err);
-          alert("Error uploading one image.");
+          console.error("Error uploading image:", file.name, err);
         }
       }
 
-      // Reset UI
-      spinner.style.display = "none";
-      uploadStatus.textContent = "All image(s) uploaded.";
-      uploadBtn.disabled = false;
-      imagePreview.src = "";
-      imagePreview.style.display = "none";
-      imageInput.value = "";
+      imagePreviewContainer.innerHTML = '';
+      imageInput.value = '';
       selectedFiles = [];
+
+      uploadStatus.innerHTML = "All image(s) uploaded.";
+      setTimeout(() => {
+        uploadStatus.style.display = "none";
+      }, 2000);
+      uploadBtn.disabled = false;
     });
   </script>
 </body>
