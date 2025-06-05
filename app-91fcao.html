@@ -2,16 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin - Message Manager</title>
+  <title>Admin - Public Messages Manager</title>
   <style>
-    body { font-family: sans-serif; background: #f0f0f0; padding: 2rem; }
-    .message { background: #fff; border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; }
+    body { font-family: sans-serif; background: #f9f9f9; padding: 20px; }
     #admin-ui { display: none; }
-    button { margin-top: 5px; }
+    .message {
+      background: #fff; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px;
+    }
+    .message img {
+      max-width: 200px; display: block; margin-top: 5px; border-radius: 4px;
+    }
+    button { cursor: pointer; padding: 5px 10px; margin-top: 5px; }
   </style>
 </head>
 <body>
-  <h1>Admin - Message Manager</h1>
+  <h1>Admin - Manage Public Chat Messages</h1>
 
   <div id="password-screen">
     <p>Enter admin password:</p>
@@ -30,7 +35,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
   <script>
-    // ✅ Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
       authDomain: "happyfeed-af48f.firebaseapp.com",
@@ -41,29 +45,21 @@
       databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
     };
 
-    // ✅ Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // ✅ Admin password
     const ADMIN_PASSWORD = "24681012ear";
 
-    // ✅ Wait for DOM to be fully loaded
-    document.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("enter-button").addEventListener("click", checkPassword);
-    });
+    document.getElementById("enter-button").addEventListener("click", checkPassword);
 
     function checkPassword() {
-      console.log("Checking password...");
       const input = document.getElementById("admin-password").value;
       if (input === ADMIN_PASSWORD) {
-        console.log("Correct password");
         document.getElementById("password-screen").style.display = "none";
         document.getElementById("admin-ui").style.display = "block";
         loadMessages();
       } else {
-        console.log("Wrong password");
-        document.getElementById("error-msg").innerText = "Incorrect password.";
+        document.getElementById("error-msg").textContent = "Incorrect password.";
       }
     }
 
@@ -72,11 +68,15 @@
       document.getElementById("password-screen").style.display = "block";
       document.getElementById("admin-password").value = "";
       document.getElementById("messages").innerHTML = "";
+      document.getElementById("error-msg").textContent = "";
+      if (messagesRef) messagesRef.off();
     }
 
+    let messagesRef;
+
     function loadMessages() {
-      const rootRef = db.ref("privateMessages");
-      rootRef.on("value", (snapshot) => {
+      messagesRef = db.ref("messages");
+      messagesRef.on("value", snapshot => {
         const container = document.getElementById("messages");
         container.innerHTML = "";
         const data = snapshot.val();
@@ -84,32 +84,43 @@
           container.innerHTML = "<p>No messages found.</p>";
           return;
         }
+        Object.entries(data).forEach(([msgId, msg]) => {
+          const div = document.createElement("div");
+          div.className = "message";
 
-        Object.entries(data).forEach(([recipient, senders]) => {
-          Object.entries(senders).forEach(([sender, msgs]) => {
-            Object.entries(msgs).forEach(([msgId, msg]) => {
-              const div = document.createElement("div");
-              div.className = "message";
-              div.innerHTML = `
-                <strong>From:</strong> ${sender}<br>
-                <strong>To:</strong> ${recipient}<br>
-                <strong>Message:</strong> ${msg.text || "⛔ [image or empty]"}<br>
-                <button onclick="deleteMessage('${recipient}', '${sender}', '${msgId}')">Delete</button>
-              `;
-              container.appendChild(div);
-            });
-          });
+          let content = `<strong>${msg.username || "Anonymous"}</strong>:<br>`;
+          if (msg.text) {
+            content += `<span>${escapeHtml(msg.text)}</span>`;
+          } else if (msg.imageUrl) {
+            content += `<img src="${escapeHtml(msg.imageUrl)}" alt="Image message" />`;
+          } else {
+            content += `<em>(No content)</em>`;
+          }
+
+          content += `<br><button onclick="deleteMessage('${msgId}')">Delete</button>`;
+
+          div.innerHTML = content;
+          container.appendChild(div);
         });
       });
     }
 
-    function deleteMessage(recipient, sender, msgId) {
-      const path = `privateMessages/${recipient}/${sender}/${msgId}`;
+    function deleteMessage(msgId) {
       if (confirm("Delete this message?")) {
-        db.ref(path).remove()
+        db.ref(`messages/${msgId}`).remove()
           .then(() => alert("Message deleted."))
-          .catch(console.error);
+          .catch(err => alert("Error deleting message: " + err.message));
       }
+    }
+
+    // Basic HTML escaping to avoid injection issues
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
   </script>
 </body>
