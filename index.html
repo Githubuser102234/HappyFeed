@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chat</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#eee; padding: 20px; }
-    #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
+    body { font-family: Arial, sans-serif; background: #eee; padding: 20px; }
+    #chatBox { background: #fff; height: 300px; overflow-y: auto; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; }
     #chatBox div { margin-bottom: 5px; }
     #msgInput, #nameInput { padding: 10px; width: 70%; margin-top: 10px; }
     #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #dmBtn { padding: 10px 20px; margin-top: 10px; }
@@ -19,14 +19,32 @@
       text-align: center;
       cursor: pointer;
     }
-    #imagePreview {
+    #imagePreviewContainer img {
       max-width: 100px;
       max-height: 100px;
-      margin-left: 10px;
+      margin: 5px;
       vertical-align: middle;
-      display: none;
       border: 1px solid #ccc;
       border-radius: 4px;
+    }
+    #uploadStatus {
+      display: none;
+      margin-top: 10px;
+      color: #555;
+      font-size: 14px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ccc;
+      border-top-color: #333;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
     #header {
       display: flex;
@@ -55,10 +73,11 @@
 
   <br><br>
 
-  <input type="file" id="imageInput" accept="image/*" style="display:none" />
+  <input type="file" id="imageInput" accept="image/*" multiple style="display: none;" />
   <button id="chooseImageBtn">+</button>
-  <img id="imagePreview" alt="Image preview" />
-  <button id="uploadBtn">Send Image</button>
+  <div id="imagePreviewContainer"></div>
+  <button id="uploadBtn">Send Image(s)</button>
+  <div id="uploadStatus"><span class="spinner"></span> Uploading image(s)...</div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
@@ -86,10 +105,11 @@
     const imageInput = document.getElementById('imageInput');
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
-    const imagePreview = document.getElementById('imagePreview');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const uploadStatus = document.getElementById('uploadStatus');
     const dmBtn = document.getElementById('dmBtn');
 
-    let selectedFile = null;
+    let selectedFiles = [];
 
     dmBtn.addEventListener("click", () => {
       window.location.href = "https://githubuser102234.github.io/HappyFeed/directmessaging";
@@ -142,48 +162,62 @@
     });
 
     imageInput.addEventListener("change", () => {
-      selectedFile = imageInput.files[0];
-      if (selectedFile) {
+      selectedFiles = Array.from(imageInput.files);
+      imagePreviewContainer.innerHTML = '';
+      selectedFiles.forEach(file => {
         const reader = new FileReader();
         reader.onload = e => {
-          imagePreview.src = e.target.result;
-          imagePreview.style.display = "inline-block";
+          const img = document.createElement("img");
+          img.src = e.target.result;
+          imagePreviewContainer.appendChild(img);
         };
-        reader.readAsDataURL(selectedFile);
-      } else {
-        imagePreview.src = "";
-        imagePreview.style.display = "none";
-      }
+        reader.readAsDataURL(file);
+      });
     });
 
     uploadBtn.addEventListener("click", async () => {
-      if (!selectedFile) return alert("Please choose an image first.");
-      const formData = new FormData();
-      formData.append("image", selectedFile);
-      try {
-        const res = await fetch("https://api.imgur.com/3/image", {
-          method: "POST",
-          headers: {
-            Authorization: "Client-ID bf20b916779ba44"
-          },
-          body: formData
-        });
-        const data = await res.json();
-        if (data.success) {
-          const imageUrl = data.data.link;
-          const username = localStorage.getItem("username") || "Anonymous";
-          push(messagesRef, { imageUrl, username, timestamp: Date.now() });
-          imagePreview.src = "";
-          imagePreview.style.display = "none";
-          imageInput.value = "";
-          selectedFile = null;
-        } else {
-          alert("Image upload failed.");
+      if (!selectedFiles.length) return alert("Please choose one or more images first.");
+
+      uploadBtn.disabled = true;
+      uploadStatus.style.display = "block";
+      uploadStatus.innerHTML = '<span class="spinner"></span> Uploading image(s)...';
+
+      const username = localStorage.getItem("username") || "Anonymous";
+
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        try {
+          const res = await fetch("https://api.imgur.com/3/image", {
+            method: "POST",
+            headers: {
+              Authorization: "Client-ID bf20b916779ba44"
+            },
+            body: formData
+          });
+
+          const data = await res.json();
+          if (data.success) {
+            const imageUrl = data.data.link;
+            await push(messagesRef, { imageUrl, username, timestamp: Date.now() });
+          } else {
+            console.warn("Failed to upload image:", file.name);
+          }
+        } catch (err) {
+          console.error("Error uploading image:", file.name, err);
         }
-      } catch (err) {
-        alert("Error uploading image.");
-        console.error(err);
       }
+
+      imagePreviewContainer.innerHTML = '';
+      imageInput.value = '';
+      selectedFiles = [];
+
+      uploadStatus.innerHTML = "All image(s) uploaded.";
+      setTimeout(() => {
+        uploadStatus.style.display = "none";
+      }, 2000);
+      uploadBtn.disabled = false;
     });
   </script>
 </body>
