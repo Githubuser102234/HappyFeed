@@ -9,7 +9,7 @@
     #chatBox { background:#fff; height: 300px; overflow-y:auto; padding:10px; margin-bottom:10px; border:1px solid #ccc; }
     #chatBox div { margin-bottom: 5px; }
     #msgInput, #nameInput { padding: 10px; width: 70%; margin-top: 10px; }
-    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn { padding: 10px 20px; margin-top: 10px; }
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #dmBtn { padding: 10px 20px; margin-top: 10px; }
     #chooseImageBtn {
       font-size: 24px;
       width: 40px;
@@ -28,11 +28,20 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
+    #header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
 
-  <h2>Chat</h2>
+  <div id="header">
+    <h2>Chat</h2>
+    <button id="dmBtn">Direct Messaging</button>
+  </div>
 
   <div>
     <input type="text" id="nameInput" placeholder="Enter your name" />
@@ -78,8 +87,13 @@
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
     const imagePreview = document.getElementById('imagePreview');
+    const dmBtn = document.getElementById('dmBtn');
 
     let selectedFile = null;
+
+    dmBtn.addEventListener("click", () => {
+      window.location.href = "https://githubuser102234.github.io/HappyFeed/directmessaging";
+    });
 
     saveNameBtn.addEventListener("click", () => {
       const name = nameInput.value.trim();
