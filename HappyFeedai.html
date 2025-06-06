@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Gemini 2.0 Chat</title>
+  <title>Gemini 1.5 Chat</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -64,7 +64,7 @@
 
   <script>
     const API_KEY = 'AIzaSyD5L3yzGmxRdDudy3pES0A1wlXs38cyZqU';
-    const MODEL = 'gemini-2-pro'; // fallback to 'gemini-1.5-pro' if this gives "model not found"
+    const MODEL = 'gemini-1.5-pro';
     const ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${MODEL}:generateContent?key=${API_KEY}`;
     const chatDiv = document.getElementById('chat');
 
