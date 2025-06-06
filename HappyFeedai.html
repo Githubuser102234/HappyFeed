@@ -3,54 +3,14 @@
 <head>
   <title>Gemini 1.5 Chat</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f0f0f0;
-      padding: 20px;
-    }
-    #chat {
-      max-width: 600px;
-      margin: 0 auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      height: 450px;
-      overflow-y: auto;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-    .message {
-      margin: 10px 0;
-      padding: 10px;
-      border-radius: 5px;
-      max-width: 80%;
-      word-wrap: break-word;
-    }
-    .user {
-      background-color: #d0e8ff;
-      text-align: right;
-      margin-left: auto;
-    }
-    .bot {
-      background-color: #e1ffd4;
-      text-align: left;
-      margin-right: auto;
-    }
-    #inputArea {
-      max-width: 600px;
-      margin: 10px auto 0;
-      display: flex;
-      gap: 10px;
-    }
-    input[type="text"] {
-      flex: 1;
-      padding: 10px;
-      font-size: 16px;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-    }
+    body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 20px; }
+    #chat { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; height: 450px; overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .message { margin: 10px 0; padding: 10px; border-radius: 5px; max-width: 80%; word-wrap: break-word; }
+    .user { background-color: #d0e8ff; text-align: right; margin-left: auto; }
+    .bot { background-color: #e1ffd4; text-align: left; margin-right: auto; }
+    #inputArea { max-width: 600px; margin: 10px auto 0; display: flex; gap: 10px; }
+    input[type="text"] { flex: 1; padding: 10px; font-size: 16px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -63,7 +23,7 @@
   </div>
 
   <script>
-    const API_KEY = 'AIzaSyD5L3yzGmxRdDudy3pES0A1wlXs38cyZqU';
+    const API_KEY = 'AIzaSyD5L3yzGmxRdDudy3pES0A1wlXs38cyZqU';  // Your API key here
     const MODEL = 'gemini-1.5-pro';
     const ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${MODEL}:generateContent?key=${API_KEY}`;
     const chatDiv = document.getElementById('chat');
@@ -77,11 +37,9 @@
       input.value = '';
 
       try {
-        const res = await fetch(ENDPOINT, {
+        const response = await fetch(ENDPOINT, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [
               {
@@ -92,7 +50,7 @@
           })
         });
 
-        const data = await res.json();
+        const data = await response.json();
 
         if (data.candidates && data.candidates.length > 0) {
           const reply = data.candidates[0].content.parts[0].text;
