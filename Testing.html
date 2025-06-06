@@ -1,1 +1,311 @@
-No testing is available at the moment.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #eee; padding: 20px; }
+    #chatBox { background: #fff; height: 300px; overflow-y: auto; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; }
+    #chatBox div { margin-bottom: 5px; }
+    #msgInput, #nameInput, #bioInput { padding: 10px; width: 70%; margin-top: 10px; }
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #dmBtn, #saveProfileBtn { padding: 10px 20px; margin-top: 10px; }
+    #chooseImageBtn {
+      font-size: 24px;
+      width: 40px;
+      height: 40px;
+      line-height: 30px;
+      padding: 0;
+      text-align: center;
+      cursor: pointer;
+    }
+    #imagePreviewContainer img {
+      max-width: 100px;
+      max-height: 100px;
+      margin: 5px;
+      vertical-align: middle;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #uploadStatus {
+      display: none;
+      margin-top: 10px;
+      color: #555;
+      font-size: 14px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ccc;
+      border-top-color: #333;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .username-link {
+      font-weight: bold;
+      color: blue;
+      cursor: pointer;
+    }
+    #profileModal {
+      display: none;
+      position: fixed;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      padding: 20px;
+      border: 1px solid #aaa;
+      box-shadow: 0 0 10px #00000050;
+      z-index: 1000;
+    }
+    #profileModal img {
+      max-width: 100px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="header">
+    <h2>Chat</h2>
+    <button id="dmBtn">Direct Messaging</button>
+  </div>
+
+  <div>
+    <input type="text" id="nameInput" placeholder="Enter your name" />
+    <input type="text" id="bioInput" placeholder="Enter a short bio" />
+    <input type="file" id="avatarInput" accept="image/*" />
+    <button id="saveProfileBtn">Save Profile</button>
+  </div>
+
+  <div id="chatBox"></div>
+
+  <input type="text" id="msgInput" placeholder="Type a message..." />
+  <button id="sendBtn">Send</button>
+
+  <br><br>
+
+  <input type="file" id="imageInput" accept="image/*" multiple style="display: none;" />
+  <button id="chooseImageBtn">+</button>
+  <div id="imagePreviewContainer"></div>
+  <button id="uploadBtn">Send Image(s)</button>
+  <div id="uploadStatus"><span class="spinner"></span> Uploading image(s)...</div>
+
+  <div id="profileModal">
+    <h3 id="modalName"></h3>
+    <img id="modalAvatar" src="" alt="Avatar" />
+    <p id="modalBio"></p>
+    <button onclick="document.getElementById('profileModal').style.display='none'">Close</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
+      authDomain: "happyfeed-af48f.firebaseapp.com",
+      projectId: "happyfeed-af48f",
+      storageBucket: "happyfeed-af48f.appspot.com",
+      messagingSenderId: "456897128438",
+      appId: "1:456897128438:web:1cfc3fe338df22498549d7",
+      databaseURL: "https://happyfeed-af48f-default-rtdb.firebaseio.com"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const messagesRef = ref(db, 'messages');
+
+    const chatBox = document.getElementById('chatBox');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const nameInput = document.getElementById('nameInput');
+    const bioInput = document.getElementById('bioInput');
+    const avatarInput = document.getElementById('avatarInput');
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
+    const imageInput = document.getElementById('imageInput');
+    const chooseImageBtn = document.getElementById('chooseImageBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const dmBtn = document.getElementById('dmBtn');
+
+    const profileModal = document.getElementById('profileModal');
+    const modalName = document.getElementById('modalName');
+    const modalBio = document.getElementById('modalBio');
+    const modalAvatar = document.getElementById('modalAvatar');
+
+    let selectedFiles = [];
+
+    dmBtn.addEventListener("click", () => {
+      window.location.href = "https://githubuser102234.github.io/HappyFeed/directmessaging";
+    });
+
+    saveProfileBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim();
+      const bio = bioInput.value.trim();
+      const file = avatarInput.files[0];
+
+      if (!name) return alert("Please enter your name.");
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          localStorage.setItem("profile", JSON.stringify({
+            username: name,
+            bio: bio,
+            avatar: reader.result
+          }));
+          alert("Profile saved!");
+        };
+        reader.readAsDataURL(file);
+      } else {
+        localStorage.setItem("profile", JSON.stringify({
+          username: name,
+          bio: bio,
+          avatar: null
+        }));
+        alert("Profile saved!");
+      }
+    });
+
+    function sendMessage() {
+      const profile = JSON.parse(localStorage.getItem("profile") || "{}");
+      const text = msgInput.value.trim();
+      const username = profile.username || "Anonymous";
+      if (text) {
+        push(messagesRef, { text, username, timestamp: Date.now() });
+        msgInput.value = "";
+      }
+    }
+
+    function renderMessage(msg) {
+      const msgElement = document.createElement("div");
+
+      const usernameSpan = document.createElement("span");
+      usernameSpan.textContent = `[${msg.username || "Anonymous"}]: `;
+      usernameSpan.classList.add("username-link");
+      usernameSpan.onclick = () => openProfile(msg.username);
+
+      msgElement.appendChild(usernameSpan);
+
+      if (msg.imageUrl) {
+        const img = document.createElement("img");
+        img.src = msg.imageUrl;
+        img.style.maxWidth = "200px";
+        msgElement.appendChild(img);
+      } else {
+        msgElement.append(msg.text);
+      }
+
+      chatBox.appendChild(msgElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    onChildAdded(messagesRef, snapshot => {
+      const msg = snapshot.val();
+      renderMessage(msg);
+    });
+
+    function openProfile(username) {
+      if (!username) return;
+
+      const storedProfile = JSON.parse(localStorage.getItem("profileMap") || "{}");
+      const profile = storedProfile[username];
+      if (!profile) {
+        alert("This user has not set up a profile.");
+        return;
+      }
+
+      modalName.textContent = profile.username;
+      modalBio.textContent = profile.bio || "";
+      modalAvatar.src = profile.avatar || "";
+
+      profileModal.style.display = "block";
+    }
+
+    chooseImageBtn.addEventListener("click", () => {
+      imageInput.click();
+    });
+
+    imageInput.addEventListener("change", () => {
+      selectedFiles = Array.from(imageInput.files);
+      imagePreviewContainer.innerHTML = '';
+      selectedFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = document.createElement("img");
+          img.src = e.target.result;
+          imagePreviewContainer.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    uploadBtn.addEventListener("click", async () => {
+      if (!selectedFiles.length) return alert("Please choose one or more images first.");
+
+      uploadBtn.disabled = true;
+      uploadStatus.style.display = "block";
+      uploadStatus.innerHTML = '<span class="spinner"></span> Uploading image(s)...';
+
+      const profile = JSON.parse(localStorage.getItem("profile") || "{}");
+      const username = profile.username || "Anonymous";
+
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        try {
+          const res = await fetch("https://api.imgur.com/3/image", {
+            method: "POST",
+            headers: {
+              Authorization: "Client-ID bf20b916779ba44"
+            },
+            body: formData
+          });
+
+          const data = await res.json();
+          if (data.success) {
+            const imageUrl = data.data.link;
+            await push(messagesRef, { imageUrl, username, timestamp: Date.now() });
+          } else {
+            console.warn("Failed to upload image:", file.name);
+          }
+        } catch (err) {
+          console.error("Error uploading image:", file.name, err);
+        }
+      }
+
+      imagePreviewContainer.innerHTML = '';
+      imageInput.value = '';
+      selectedFiles = [];
+
+      uploadStatus.innerHTML = "All image(s) uploaded.";
+      setTimeout(() => {
+        uploadStatus.style.display = "none";
+      }, 2000);
+      uploadBtn.disabled = false;
+    });
+
+    // Save profile to "global" profile map
+    window.addEventListener("beforeunload", () => {
+      const local = JSON.parse(localStorage.getItem("profile") || "{}");
+      if (local.username) {
+        const allProfiles = JSON.parse(localStorage.getItem("profileMap") || "{}");
+        allProfiles[local.username] = local;
+        localStorage.setItem("profileMap", JSON.stringify(allProfiles));
+      }
+    });
+  </script>
+</body>
+</html>
