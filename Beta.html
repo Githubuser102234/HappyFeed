@@ -8,168 +8,92 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
-      transition: background 0.3s, color 0.3s;
-    }
-
-    body.light {
-      background: #eee;
-      color: #000;
-    }
-
-    body.dark {
-      background: #121212;
-      color: #f5f5f5;
     }
 
     #chatBox {
-      background: #fff;
       height: 300px;
       overflow-y: auto;
+      border: 1px solid #ccc;
+      background: #f9f9f9;
       padding: 10px;
       margin-bottom: 10px;
-      border: 1px solid #ccc;
-    }
-
-    body.dark #chatBox {
-      background: #1e1e1e;
-      border-color: #444;
     }
 
     #chatBox div {
-      margin-bottom: 5px;
+      margin-bottom: 8px;
     }
 
-    input, button, textarea {
-      padding: 10px;
-      margin-top: 10px;
+    .username {
+      font-weight: bold;
     }
 
-    input[type="text"], textarea {
-      width: 70%;
-    }
-
-    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #saveProfileBtn {
-      padding: 10px 20px;
-    }
-
-    #chooseImageBtn {
-      font-size: 24px;
-      width: 40px;
-      height: 40px;
-      padding: 0;
-      cursor: pointer;
-    }
-
-    #imagePreviewContainer img {
-      max-width: 100px;
-      max-height: 100px;
-      margin: 5px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-
-    body.dark input,
-    body.dark button {
-      background: #333;
-      color: #f5f5f5;
-      border: 1px solid #555;
-    }
-
-    #uploadStatus {
-      display: none;
-      margin-top: 10px;
-      color: #555;
-      font-size: 14px;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 2px solid #ccc;
-      border-top-color: #333;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    #header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    #themeSelector {
-      margin-left: 10px;
-      padding: 5px;
-    }
-
-    .username.hasProfile {
+    .hasProfile {
       color: blue;
       text-decoration: underline;
       cursor: pointer;
     }
 
-    .username.noProfile {
+    .noProfile {
       color: black;
     }
 
-    #profileEditor, #profileViewer {
-      margin-top: 20px;
-      border: 1px solid #ccc;
-      padding: 10px;
-      background: #fafafa;
-    }
-
-    #profileViewer {
+    #profileModal {
       display: none;
       position: fixed;
       top: 20%;
       left: 50%;
-      transform: translateX(-50%);
+      transform: translate(-50%, -20%);
       background: white;
+      border: 2px solid #444;
       padding: 20px;
-      border: 2px solid #666;
-      z-index: 100;
+      z-index: 1000;
+      max-width: 300px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
     }
 
-    #profileViewer img {
+    #profileModal img {
       max-width: 100px;
       display: block;
       margin-bottom: 10px;
     }
 
-    #closeProfileBtn {
-      margin-top: 10px;
+    #overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+
+    input, button, textarea {
+      margin-top: 5px;
+      padding: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 60px;
+    }
+
+    #imagePreview img {
+      max-width: 100px;
+      margin: 5px;
     }
   </style>
 </head>
-<body class="light">
+<body>
 
-  <div id="header">
-    <h2>Chat</h2>
-    <div>
-      <select id="themeSelector">
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-    </div>
-  </div>
+  <h2>Chat</h2>
+  <input type="text" id="nameInput" placeholder="Your name" />
+  <button id="saveName">Save Name</button>
 
-  <div>
-    <input type="text" id="nameInput" placeholder="Enter your name" />
-    <button id="saveNameBtn">Save Name</button>
-  </div>
-
-  <div id="profileEditor">
-    <h3>Your Profile</h3>
-    <input type="file" id="profilePicInput" accept="image/*" /><br>
-    <textarea id="bioInput" placeholder="Enter your bio"></textarea><br>
-    <button id="saveProfileBtn">Save Profile</button>
+  <div id="profileSection">
+    <h3>Edit Profile</h3>
+    <input type="file" id="profilePicInput" accept="image/*"><br>
+    <textarea id="bioInput" placeholder="Your bio..."></textarea><br>
+    <button id="saveProfile">Save Profile</button>
   </div>
 
   <div id="chatBox"></div>
@@ -178,18 +102,16 @@
   <button id="sendBtn">Send</button>
 
   <br><br>
+  <input type="file" id="imageInput" multiple accept="image/*">
+  <div id="imagePreview"></div>
 
-  <input type="file" id="imageInput" accept="image/*" multiple style="display: none;" />
-  <button id="chooseImageBtn">+</button>
-  <div id="imagePreviewContainer"></div>
-  <button id="uploadBtn">Send Image(s)</button>
-  <div id="uploadStatus"><span class="spinner"></span> Uploading image(s)...</div>
-
-  <div id="profileViewer">
-    <img id="profilePic" />
-    <h3 id="profileName"></h3>
-    <p id="profileBio"></p>
-    <button id="closeProfileBtn">Close</button>
+  <!-- Modal Viewer -->
+  <div id="overlay"></div>
+  <div id="profileModal">
+    <img id="modalPic" src="" alt="Profile Picture">
+    <h3 id="modalName"></h3>
+    <p id="modalBio"></p>
+    <button onclick="closeModal()">Close</button>
   </div>
 
   <script type="module">
@@ -208,188 +130,122 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const messagesRef = ref(db, 'messages');
+    const messagesRef = ref(db, "messages");
 
-    const chatBox = document.getElementById('chatBox');
-    const msgInput = document.getElementById('msgInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const nameInput = document.getElementById('nameInput');
-    const saveNameBtn = document.getElementById('saveNameBtn');
-    const imageInput = document.getElementById('imageInput');
-    const chooseImageBtn = document.getElementById('chooseImageBtn');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
-    const uploadStatus = document.getElementById('uploadStatus');
-    const themeSelector = document.getElementById("themeSelector");
+    const nameInput = document.getElementById("nameInput");
+    const saveNameBtn = document.getElementById("saveName");
+    const sendBtn = document.getElementById("sendBtn");
+    const msgInput = document.getElementById("msgInput");
+    const chatBox = document.getElementById("chatBox");
+    const profilePicInput = document.getElementById("profilePicInput");
+    const bioInput = document.getElementById("bioInput");
+    const saveProfileBtn = document.getElementById("saveProfile");
+    const imageInput = document.getElementById("imageInput");
+    const imagePreview = document.getElementById("imagePreview");
 
-    const profilePicInput = document.getElementById('profilePicInput');
-    const bioInput = document.getElementById('bioInput');
-    const saveProfileBtn = document.getElementById('saveProfileBtn');
-    const profileViewer = document.getElementById('profileViewer');
-    const profileName = document.getElementById('profileName');
-    const profileBio = document.getElementById('profileBio');
-    const profilePic = document.getElementById('profilePic');
-    const closeProfileBtn = document.getElementById('closeProfileBtn');
+    const overlay = document.getElementById("overlay");
+    const profileModal = document.getElementById("profileModal");
+    const modalPic = document.getElementById("modalPic");
+    const modalName = document.getElementById("modalName");
+    const modalBio = document.getElementById("modalBio");
 
-    let selectedFiles = [];
-
-    // THEME
-    const savedTheme = localStorage.getItem("theme") || "light";
-    document.body.classList.add(savedTheme);
-    themeSelector.value = savedTheme;
-
-    themeSelector.addEventListener("change", () => {
-      document.body.classList.remove("light", "dark");
-      document.body.classList.add(themeSelector.value);
-      localStorage.setItem("theme", themeSelector.value);
-    });
-
-    // NAME
+    // Save name
     nameInput.value = localStorage.getItem("username") || "";
-    saveNameBtn.addEventListener("click", () => {
-      const name = nameInput.value.trim();
-      if (name) {
-        localStorage.setItem("username", name);
-        alert("Name saved!");
+    saveNameBtn.onclick = () => {
+      localStorage.setItem("username", nameInput.value.trim());
+      alert("Name saved!");
+    };
+
+    // Save profile
+    saveProfileBtn.onclick = () => {
+      const name = localStorage.getItem("username");
+      if (!name) return alert("Save your name first.");
+      const bio = bioInput.value.trim();
+      const file = profilePicInput.files[0];
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const profile = { bio, picture: reader.result };
+          localStorage.setItem("profile_" + name, JSON.stringify(profile));
+          alert("Profile saved.");
+        };
+        reader.readAsDataURL(file);
+      } else {
+        const profile = { bio, picture: "" };
+        localStorage.setItem("profile_" + name, JSON.stringify(profile));
+        alert("Profile saved.");
       }
-    });
+    };
 
-    // SEND MESSAGE
-    sendBtn.addEventListener("click", sendMessage);
-    msgInput.addEventListener("keydown", e => {
-      if (e.key === "Enter") sendMessage();
-    });
-
-    function sendMessage() {
+    // Send text message
+    sendBtn.onclick = () => {
       const text = msgInput.value.trim();
       const username = localStorage.getItem("username") || "Anonymous";
       if (text) {
         push(messagesRef, { text, username, timestamp: Date.now() });
         msgInput.value = "";
       }
-    }
+    };
 
-    function renderMessage(msg) {
-      const msgElement = document.createElement("div");
-      const hasProfile = !!localStorage.getItem("profile_" + msg.username);
+    // Listen to new messages
+    onChildAdded(messagesRef, snap => {
+      const msg = snap.val();
+      const msgDiv = document.createElement("div");
 
       const nameSpan = document.createElement("span");
-      nameSpan.textContent = msg.username || "Anonymous";
-      nameSpan.className = "username " + (hasProfile ? "hasProfile" : "noProfile");
+      nameSpan.textContent = msg.username;
+      nameSpan.classList.add("username");
 
-      if (hasProfile) {
-        nameSpan.addEventListener("click", () => {
-          const profile = JSON.parse(localStorage.getItem("profile_" + msg.username));
-          profileName.textContent = msg.username;
-          profileBio.textContent = profile.bio || "No bio";
-          profilePic.src = profile.picture || "";
-          profileViewer.style.display = "block";
-        });
+      const profile = localStorage.getItem("profile_" + msg.username);
+      if (profile) {
+        nameSpan.classList.add("hasProfile");
+        nameSpan.onclick = () => {
+          const data = JSON.parse(profile);
+          modalPic.src = data.picture || "";
+          modalName.textContent = msg.username;
+          modalBio.textContent = data.bio || "No bio";
+          overlay.style.display = "block";
+          profileModal.style.display = "block";
+        };
+      } else {
+        nameSpan.classList.add("noProfile");
       }
 
-      msgElement.innerHTML = `[`;
-      msgElement.appendChild(nameSpan);
-      msgElement.innerHTML += `]: `;
+      msgDiv.append("[");
+      msgDiv.appendChild(nameSpan);
+      msgDiv.append("]: " + (msg.text || ""));
 
       if (msg.imageUrl) {
         const img = document.createElement("img");
         img.src = msg.imageUrl;
         img.style.maxWidth = "200px";
-        msgElement.appendChild(img);
-      } else {
-        msgElement.innerHTML += msg.text;
+        img.style.display = "block";
+        msgDiv.appendChild(img);
       }
 
-      chatBox.appendChild(msgElement);
+      chatBox.appendChild(msgDiv);
       chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    onChildAdded(messagesRef, snapshot => {
-      const msg = snapshot.val();
-      renderMessage(msg);
     });
 
-    // IMAGE UPLOAD
-    chooseImageBtn.addEventListener("click", () => imageInput.click());
+    // Close profile modal
+    window.closeModal = () => {
+      overlay.style.display = "none";
+      profileModal.style.display = "none";
+    };
 
+    // Image preview
     imageInput.addEventListener("change", () => {
-      selectedFiles = Array.from(imageInput.files);
-      imagePreviewContainer.innerHTML = '';
-      selectedFiles.forEach(file => {
+      imagePreview.innerHTML = "";
+      Array.from(imageInput.files).forEach(file => {
         const reader = new FileReader();
         reader.onload = e => {
           const img = document.createElement("img");
           img.src = e.target.result;
-          imagePreviewContainer.appendChild(img);
+          imagePreview.appendChild(img);
         };
         reader.readAsDataURL(file);
       });
-    });
-
-    uploadBtn.addEventListener("click", async () => {
-      if (!selectedFiles.length) return alert("Please choose image(s) first.");
-      uploadBtn.disabled = true;
-      uploadStatus.style.display = "block";
-
-      const username = localStorage.getItem("username") || "Anonymous";
-
-      for (const file of selectedFiles) {
-        const formData = new FormData();
-        formData.append("image", file);
-
-        try {
-          const res = await fetch("https://api.imgur.com/3/image", {
-            method: "POST",
-            headers: { Authorization: "Client-ID bf20b916779ba44" },
-            body: formData
-          });
-
-          const data = await res.json();
-          if (data.success) {
-            await push(messagesRef, {
-              imageUrl: data.data.link,
-              username,
-              timestamp: Date.now()
-            });
-          }
-        } catch (err) {
-          console.error("Upload error:", err);
-        }
-      }
-
-      imagePreviewContainer.innerHTML = '';
-      imageInput.value = '';
-      selectedFiles = [];
-      uploadStatus.innerHTML = "Uploaded.";
-      setTimeout(() => uploadStatus.style.display = "none", 2000);
-      uploadBtn.disabled = false;
-    });
-
-    // PROFILE
-    saveProfileBtn.addEventListener("click", () => {
-      const username = localStorage.getItem("username");
-      if (!username) return alert("Please save your name first.");
-
-      const file = profilePicInput.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        const profile = {
-          picture: reader.result,
-          bio: bioInput.value.trim()
-        };
-        localStorage.setItem("profile_" + username, JSON.stringify(profile));
-        alert("Profile saved!");
-      };
-      if (file) reader.readAsDataURL(file);
-      else {
-        const profile = { picture: "", bio: bioInput.value.trim() };
-        localStorage.setItem("profile_" + username, JSON.stringify(profile));
-        alert("Profile saved!");
-      }
-    });
-
-    closeProfileBtn.addEventListener("click", () => {
-      profileViewer.style.display = "none";
     });
   </script>
 </body>
