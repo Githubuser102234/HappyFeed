@@ -48,7 +48,7 @@
       width: 70%;
     }
 
-    #sendBtn, #saveProfileBtn, #uploadBtn, #chooseImageBtn, #dmBtn {
+    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #saveProfileBtn {
       padding: 10px 20px;
     }
 
@@ -56,9 +56,7 @@
       font-size: 24px;
       width: 40px;
       height: 40px;
-      line-height: 30px;
       padding: 0;
-      text-align: center;
       cursor: pointer;
     }
 
@@ -66,21 +64,15 @@
       max-width: 100px;
       max-height: 100px;
       margin: 5px;
-      vertical-align: middle;
       border: 1px solid #ccc;
       border-radius: 4px;
     }
 
     body.dark input,
-    body.dark button,
-    body.dark textarea {
+    body.dark button {
       background: #333;
       color: #f5f5f5;
       border: 1px solid #555;
-    }
-
-    body.dark #imagePreviewContainer img {
-      border-color: #444;
     }
 
     #uploadStatus {
@@ -98,7 +90,6 @@
       border-top-color: #333;
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      vertical-align: middle;
     }
 
     @keyframes spin {
@@ -117,41 +108,47 @@
       padding: 5px;
     }
 
-    .profile-popup {
+    .username.hasProfile {
+      color: blue;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .username.noProfile {
+      color: black;
+    }
+
+    #profileEditor, #profileViewer {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background: #fafafa;
+    }
+
+    #profileViewer {
+      display: none;
       position: fixed;
       top: 20%;
       left: 50%;
       transform: translateX(-50%);
       background: white;
       padding: 20px;
-      border: 1px solid #aaa;
-      border-radius: 8px;
-      z-index: 1000;
-      width: 300px;
+      border: 2px solid #666;
+      z-index: 100;
     }
 
-    body.dark .profile-popup {
-      background: #222;
-      color: #fff;
-      border-color: #555;
-    }
-
-    .profile-popup img {
-      max-width: 100%;
-      border-radius: 8px;
+    #profileViewer img {
+      max-width: 100px;
+      display: block;
       margin-bottom: 10px;
     }
 
-    .overlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5);
-      z-index: 999;
+    #closeProfileBtn {
+      margin-top: 10px;
     }
   </style>
 </head>
-<body>
+<body class="light">
 
   <div id="header">
     <h2>Chat</h2>
@@ -160,14 +157,18 @@
         <option value="light">Light</option>
         <option value="dark">Dark</option>
       </select>
-      <button id="dmBtn">Direct Messaging</button>
     </div>
   </div>
 
   <div>
-    <input type="text" id="nameInput" placeholder="Name" />
-    <input type="text" id="bioInput" placeholder="Bio" />
-    <input type="file" id="profilePicInput" accept="image/*" />
+    <input type="text" id="nameInput" placeholder="Enter your name" />
+    <button id="saveNameBtn">Save Name</button>
+  </div>
+
+  <div id="profileEditor">
+    <h3>Your Profile</h3>
+    <input type="file" id="profilePicInput" accept="image/*" /><br>
+    <textarea id="bioInput" placeholder="Enter your bio"></textarea><br>
     <button id="saveProfileBtn">Save Profile</button>
   </div>
 
@@ -183,6 +184,13 @@
   <div id="imagePreviewContainer"></div>
   <button id="uploadBtn">Send Image(s)</button>
   <div id="uploadStatus"><span class="spinner"></span> Uploading image(s)...</div>
+
+  <div id="profileViewer">
+    <img id="profilePic" />
+    <h3 id="profileName"></h3>
+    <p id="profileBio"></p>
+    <button id="closeProfileBtn">Close</button>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
@@ -205,88 +213,88 @@
     const chatBox = document.getElementById('chatBox');
     const msgInput = document.getElementById('msgInput');
     const sendBtn = document.getElementById('sendBtn');
-    const saveProfileBtn = document.getElementById('saveProfileBtn');
     const nameInput = document.getElementById('nameInput');
-    const bioInput = document.getElementById('bioInput');
-    const profilePicInput = document.getElementById('profilePicInput');
+    const saveNameBtn = document.getElementById('saveNameBtn');
     const imageInput = document.getElementById('imageInput');
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
     const imagePreviewContainer = document.getElementById('imagePreviewContainer');
     const uploadStatus = document.getElementById('uploadStatus');
-    const dmBtn = document.getElementById('dmBtn');
     const themeSelector = document.getElementById("themeSelector");
+
+    const profilePicInput = document.getElementById('profilePicInput');
+    const bioInput = document.getElementById('bioInput');
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
+    const profileViewer = document.getElementById('profileViewer');
+    const profileName = document.getElementById('profileName');
+    const profileBio = document.getElementById('profileBio');
+    const profilePic = document.getElementById('profilePic');
+    const closeProfileBtn = document.getElementById('closeProfileBtn');
 
     let selectedFiles = [];
 
-    // Load theme
+    // THEME
     const savedTheme = localStorage.getItem("theme") || "light";
     document.body.classList.add(savedTheme);
     themeSelector.value = savedTheme;
+
     themeSelector.addEventListener("change", () => {
       document.body.classList.remove("light", "dark");
       document.body.classList.add(themeSelector.value);
       localStorage.setItem("theme", themeSelector.value);
     });
 
-    dmBtn.addEventListener("click", () => {
-      window.location.href = "https://githubuser102234.github.io/HappyFeed/directmessaging";
-    });
-
-    saveProfileBtn.addEventListener("click", () => {
+    // NAME
+    nameInput.value = localStorage.getItem("username") || "";
+    saveNameBtn.addEventListener("click", () => {
       const name = nameInput.value.trim();
-      const bio = bioInput.value.trim();
-      const pic = profilePicInput.files[0];
-      if (!name) return alert("Name is required.");
-
-      if (pic) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const profile = { name, bio, pic: reader.result };
-          localStorage.setItem("profile", JSON.stringify(profile));
-          alert("Profile saved!");
-        };
-        reader.readAsDataURL(pic);
-      } else {
-        const profile = { name, bio, pic: null };
-        localStorage.setItem("profile", JSON.stringify(profile));
-        alert("Profile saved!");
+      if (name) {
+        localStorage.setItem("username", name);
+        alert("Name saved!");
       }
     });
 
+    // SEND MESSAGE
     sendBtn.addEventListener("click", sendMessage);
     msgInput.addEventListener("keydown", e => {
       if (e.key === "Enter") sendMessage();
     });
 
     function sendMessage() {
-      const profile = JSON.parse(localStorage.getItem("profile")) || {};
       const text = msgInput.value.trim();
+      const username = localStorage.getItem("username") || "Anonymous";
       if (text) {
-        push(messagesRef, {
-          text,
-          username: profile.name || "Anonymous",
-          timestamp: Date.now()
-        });
+        push(messagesRef, { text, username, timestamp: Date.now() });
         msgInput.value = "";
       }
     }
 
     function renderMessage(msg) {
       const msgElement = document.createElement("div");
-      const nameEl = document.createElement("strong");
-      nameEl.textContent = msg.username || "Anonymous";
-      nameEl.style.cursor = "pointer";
-      nameEl.onclick = () => showProfile(msg.username);
+      const hasProfile = !!localStorage.getItem("profile_" + msg.username);
 
-      msgElement.appendChild(nameEl);
-      msgElement.innerHTML += ": ";
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = msg.username || "Anonymous";
+      nameSpan.className = "username " + (hasProfile ? "hasProfile" : "noProfile");
+
+      if (hasProfile) {
+        nameSpan.addEventListener("click", () => {
+          const profile = JSON.parse(localStorage.getItem("profile_" + msg.username));
+          profileName.textContent = msg.username;
+          profileBio.textContent = profile.bio || "No bio";
+          profilePic.src = profile.picture || "";
+          profileViewer.style.display = "block";
+        });
+      }
+
+      msgElement.innerHTML = `[`;
+      msgElement.appendChild(nameSpan);
+      msgElement.innerHTML += `]: `;
 
       if (msg.imageUrl) {
         const img = document.createElement("img");
         img.src = msg.imageUrl;
         img.style.maxWidth = "200px";
-        msgElement.appendChild(document.createElement("br"));
         msgElement.appendChild(img);
       } else {
         msgElement.innerHTML += msg.text;
@@ -297,9 +305,11 @@
     }
 
     onChildAdded(messagesRef, snapshot => {
-      renderMessage(snapshot.val());
+      const msg = snapshot.val();
+      renderMessage(msg);
     });
 
+    // IMAGE UPLOAD
     chooseImageBtn.addEventListener("click", () => imageInput.click());
 
     imageInput.addEventListener("change", () => {
@@ -317,22 +327,23 @@
     });
 
     uploadBtn.addEventListener("click", async () => {
-      if (!selectedFiles.length) return alert("Please choose image(s).");
+      if (!selectedFiles.length) return alert("Please choose image(s) first.");
       uploadBtn.disabled = true;
       uploadStatus.style.display = "block";
 
-      const profile = JSON.parse(localStorage.getItem("profile")) || {};
-      const username = profile.name || "Anonymous";
+      const username = localStorage.getItem("username") || "Anonymous";
 
       for (const file of selectedFiles) {
         const formData = new FormData();
         formData.append("image", file);
+
         try {
           const res = await fetch("https://api.imgur.com/3/image", {
             method: "POST",
             headers: { Authorization: "Client-ID bf20b916779ba44" },
             body: formData
           });
+
           const data = await res.json();
           if (data.success) {
             await push(messagesRef, {
@@ -342,41 +353,44 @@
             });
           }
         } catch (err) {
-          console.error("Upload failed:", file.name);
+          console.error("Upload error:", err);
         }
       }
 
       imagePreviewContainer.innerHTML = '';
       imageInput.value = '';
       selectedFiles = [];
-      uploadStatus.innerHTML = "Uploaded!";
+      uploadStatus.innerHTML = "Uploaded.";
       setTimeout(() => uploadStatus.style.display = "none", 2000);
       uploadBtn.disabled = false;
     });
 
-    function showProfile(username) {
-      const saved = JSON.parse(localStorage.getItem("profile"));
-      if (!saved || saved.name !== username) return;
+    // PROFILE
+    saveProfileBtn.addEventListener("click", () => {
+      const username = localStorage.getItem("username");
+      if (!username) return alert("Please save your name first.");
 
-      const overlay = document.createElement("div");
-      overlay.className = "overlay";
-      overlay.onclick = () => {
-        document.body.removeChild(overlay);
-        document.body.removeChild(profilePopup);
+      const file = profilePicInput.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        const profile = {
+          picture: reader.result,
+          bio: bioInput.value.trim()
+        };
+        localStorage.setItem("profile_" + username, JSON.stringify(profile));
+        alert("Profile saved!");
       };
-
-      const profilePopup = document.createElement("div");
-      profilePopup.className = "profile-popup";
-      if (saved.pic) {
-        const img = document.createElement("img");
-        img.src = saved.pic;
-        profilePopup.appendChild(img);
+      if (file) reader.readAsDataURL(file);
+      else {
+        const profile = { picture: "", bio: bioInput.value.trim() };
+        localStorage.setItem("profile_" + username, JSON.stringify(profile));
+        alert("Profile saved!");
       }
-      profilePopup.innerHTML += `<h3>${saved.name}</h3><p>${saved.bio || ''}</p>`;
+    });
 
-      document.body.appendChild(overlay);
-      document.body.appendChild(profilePopup);
-    }
+    closeProfileBtn.addEventListener("click", () => {
+      profileViewer.style.display = "none";
+    });
   </script>
 </body>
 </html>
