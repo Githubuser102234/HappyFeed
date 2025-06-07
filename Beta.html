@@ -39,16 +39,16 @@
       margin-bottom: 5px;
     }
 
-    input, button {
+    input, button, textarea {
       padding: 10px;
       margin-top: 10px;
     }
 
-    input[type="text"] {
+    input[type="text"], textarea {
       width: 70%;
     }
 
-    #sendBtn, #saveNameBtn, #uploadBtn, #chooseImageBtn, #dmBtn {
+    #sendBtn, #saveProfileBtn, #uploadBtn, #chooseImageBtn, #dmBtn {
       padding: 10px 20px;
     }
 
@@ -72,7 +72,8 @@
     }
 
     body.dark input,
-    body.dark button {
+    body.dark button,
+    body.dark textarea {
       background: #333;
       color: #f5f5f5;
       border: 1px solid #555;
@@ -115,6 +116,39 @@
       margin-left: 10px;
       padding: 5px;
     }
+
+    .profile-popup {
+      position: fixed;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 20px;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      z-index: 1000;
+      width: 300px;
+    }
+
+    body.dark .profile-popup {
+      background: #222;
+      color: #fff;
+      border-color: #555;
+    }
+
+    .profile-popup img {
+      max-width: 100%;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
   </style>
 </head>
 <body>
@@ -131,8 +165,10 @@
   </div>
 
   <div>
-    <input type="text" id="nameInput" placeholder="Enter your name" />
-    <button id="saveNameBtn">Save Name</button>
+    <input type="text" id="nameInput" placeholder="Name" />
+    <input type="text" id="bioInput" placeholder="Bio" />
+    <input type="file" id="profilePicInput" accept="image/*" />
+    <button id="saveProfileBtn">Save Profile</button>
   </div>
 
   <div id="chatBox"></div>
@@ -169,8 +205,10 @@
     const chatBox = document.getElementById('chatBox');
     const msgInput = document.getElementById('msgInput');
     const sendBtn = document.getElementById('sendBtn');
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
     const nameInput = document.getElementById('nameInput');
-    const saveNameBtn = document.getElementById('saveNameBtn');
+    const bioInput = document.getElementById('bioInput');
+    const profilePicInput = document.getElementById('profilePicInput');
     const imageInput = document.getElementById('imageInput');
     const chooseImageBtn = document.getElementById('chooseImageBtn');
     const uploadBtn = document.getElementById('uploadBtn');
@@ -181,11 +219,10 @@
 
     let selectedFiles = [];
 
-    // Load and apply saved theme
+    // Load theme
     const savedTheme = localStorage.getItem("theme") || "light";
     document.body.classList.add(savedTheme);
     themeSelector.value = savedTheme;
-
     themeSelector.addEventListener("change", () => {
       document.body.classList.remove("light", "dark");
       document.body.classList.add(themeSelector.value);
@@ -196,11 +233,24 @@
       window.location.href = "https://githubuser102234.github.io/HappyFeed/directmessaging";
     });
 
-    saveNameBtn.addEventListener("click", () => {
+    saveProfileBtn.addEventListener("click", () => {
       const name = nameInput.value.trim();
-      if (name) {
-        localStorage.setItem("username", name);
-        alert("Name saved!");
+      const bio = bioInput.value.trim();
+      const pic = profilePicInput.files[0];
+      if (!name) return alert("Name is required.");
+
+      if (pic) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const profile = { name, bio, pic: reader.result };
+          localStorage.setItem("profile", JSON.stringify(profile));
+          alert("Profile saved!");
+        };
+        reader.readAsDataURL(pic);
+      } else {
+        const profile = { name, bio, pic: null };
+        localStorage.setItem("profile", JSON.stringify(profile));
+        alert("Profile saved!");
       }
     });
 
@@ -210,37 +260,47 @@
     });
 
     function sendMessage() {
+      const profile = JSON.parse(localStorage.getItem("profile")) || {};
       const text = msgInput.value.trim();
-      const username = localStorage.getItem("username") || "Anonymous";
       if (text) {
-        push(messagesRef, { text, username, timestamp: Date.now() });
+        push(messagesRef, {
+          text,
+          username: profile.name || "Anonymous",
+          timestamp: Date.now()
+        });
         msgInput.value = "";
       }
     }
 
     function renderMessage(msg) {
       const msgElement = document.createElement("div");
+      const nameEl = document.createElement("strong");
+      nameEl.textContent = msg.username || "Anonymous";
+      nameEl.style.cursor = "pointer";
+      nameEl.onclick = () => showProfile(msg.username);
+
+      msgElement.appendChild(nameEl);
+      msgElement.innerHTML += ": ";
+
       if (msg.imageUrl) {
         const img = document.createElement("img");
         img.src = msg.imageUrl;
         img.style.maxWidth = "200px";
-        msgElement.innerHTML = `<strong>${msg.username || "Anonymous"}</strong>:<br>`;
+        msgElement.appendChild(document.createElement("br"));
         msgElement.appendChild(img);
       } else {
-        msgElement.textContent = `[${msg.username || "Anonymous"}]: ${msg.text}`;
+        msgElement.innerHTML += msg.text;
       }
+
       chatBox.appendChild(msgElement);
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
     onChildAdded(messagesRef, snapshot => {
-      const msg = snapshot.val();
-      renderMessage(msg);
+      renderMessage(snapshot.val());
     });
 
-    chooseImageBtn.addEventListener("click", () => {
-      imageInput.click();
-    });
+    chooseImageBtn.addEventListener("click", () => imageInput.click());
 
     imageInput.addEventListener("change", () => {
       selectedFiles = Array.from(imageInput.files);
@@ -257,49 +317,66 @@
     });
 
     uploadBtn.addEventListener("click", async () => {
-      if (!selectedFiles.length) return alert("Please choose one or more images first.");
-
+      if (!selectedFiles.length) return alert("Please choose image(s).");
       uploadBtn.disabled = true;
       uploadStatus.style.display = "block";
-      uploadStatus.innerHTML = '<span class="spinner"></span> Uploading image(s)...';
 
-      const username = localStorage.getItem("username") || "Anonymous";
+      const profile = JSON.parse(localStorage.getItem("profile")) || {};
+      const username = profile.name || "Anonymous";
 
       for (const file of selectedFiles) {
         const formData = new FormData();
         formData.append("image", file);
-
         try {
           const res = await fetch("https://api.imgur.com/3/image", {
             method: "POST",
-            headers: {
-              Authorization: "Client-ID bf20b916779ba44"
-            },
+            headers: { Authorization: "Client-ID bf20b916779ba44" },
             body: formData
           });
-
           const data = await res.json();
           if (data.success) {
-            const imageUrl = data.data.link;
-            await push(messagesRef, { imageUrl, username, timestamp: Date.now() });
-          } else {
-            console.warn("Failed to upload image:", file.name);
+            await push(messagesRef, {
+              imageUrl: data.data.link,
+              username,
+              timestamp: Date.now()
+            });
           }
         } catch (err) {
-          console.error("Error uploading image:", file.name, err);
+          console.error("Upload failed:", file.name);
         }
       }
 
       imagePreviewContainer.innerHTML = '';
       imageInput.value = '';
       selectedFiles = [];
-
-      uploadStatus.innerHTML = "All image(s) uploaded.";
-      setTimeout(() => {
-        uploadStatus.style.display = "none";
-      }, 2000);
+      uploadStatus.innerHTML = "Uploaded!";
+      setTimeout(() => uploadStatus.style.display = "none", 2000);
       uploadBtn.disabled = false;
     });
+
+    function showProfile(username) {
+      const saved = JSON.parse(localStorage.getItem("profile"));
+      if (!saved || saved.name !== username) return;
+
+      const overlay = document.createElement("div");
+      overlay.className = "overlay";
+      overlay.onclick = () => {
+        document.body.removeChild(overlay);
+        document.body.removeChild(profilePopup);
+      };
+
+      const profilePopup = document.createElement("div");
+      profilePopup.className = "profile-popup";
+      if (saved.pic) {
+        const img = document.createElement("img");
+        img.src = saved.pic;
+        profilePopup.appendChild(img);
+      }
+      profilePopup.innerHTML += `<h3>${saved.name}</h3><p>${saved.bio || ''}</p>`;
+
+      document.body.appendChild(overlay);
+      document.body.appendChild(profilePopup);
+    }
   </script>
 </body>
 </html>
