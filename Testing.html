@@ -144,7 +144,6 @@
 
     const videoInput = document.getElementById('videoInput');
     const chooseVideoBtn = document.getElementById('chooseVideoBtn');
-    const videoUploadStatus = document.getElementById('videoUploadStatus');
     const videoSpinner = document.getElementById('videoSpinner');
     const videoStatusText = document.getElementById('videoStatusText');
 
@@ -267,25 +266,18 @@
       videoStatusText.textContent = " Uploading video...";
       chooseVideoBtn.disabled = true;
 
-      const formData = new FormData();
-      formData.append("file", file);
-
       try {
-        const res = await fetch("https://file.io/?expires=7d", {
-          method: "POST",
-          body: formData
+        const res = await fetch("https://transfer.sh/" + encodeURIComponent(file.name), {
+          method: "PUT",
+          body: file
         });
 
-        const data = await res.json();
-        if (res.ok && data.success && data.link) {
-          const videoUrl = data.link;
-          const username = localStorage.getItem("username") || "Anonymous";
-          await push(messagesRef, { videoUrl, username, timestamp: Date.now() });
-          videoStatusText.textContent = " Video uploaded!";
-        } else {
-          console.warn("File.io response error:", data);
-          videoStatusText.textContent = " Failed to upload video.";
-        }
+        if (!res.ok) throw new Error("Upload failed with status " + res.status);
+
+        const videoUrl = await res.text();
+        const username = localStorage.getItem("username") || "Anonymous";
+        await push(messagesRef, { videoUrl, username, timestamp: Date.now() });
+        videoStatusText.textContent = " Video uploaded!";
       } catch (err) {
         console.error("Video upload error:", err);
         videoStatusText.textContent = " Upload error.";
