@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chat</title>
+  <title>Chat with Streamable Video Upload</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -42,8 +42,6 @@
       border: 1px solid #ccc;
       border-radius: 4px;
       background: white;
-      margin-left: 10px;
-      vertical-align: middle;
     }
     #imagePreviewContainer img {
       max-width: 100px;
@@ -78,6 +76,10 @@
       align-items: center;
       margin-bottom: 10px;
     }
+    video {
+      max-width: 300px;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
@@ -101,30 +103,29 @@
 
   <!-- Image Upload -->
   <input type="file" id="imageInput" accept="image/*" multiple style="display: none;" />
-  <button id="chooseImageBtn">+</button>
-  <button id="uploadImageBtn">Send Image(s)</button>
-  <div id="uploadImageStatus" style="display: none; margin-top: 10px; color: #555; font-size: 14px;">
+  <button id="chooseImageBtn" title="Choose images">+</button>
+  <div id="imagePreviewContainer"></div>
+  <button id="uploadBtn">Send Image(s)</button>
+  <div id="uploadStatus" style="display: none; margin-top: 10px; color: #555; font-size: 14px;">
     <span class="spinner"></span> Uploading image(s)...
   </div>
-  <div id="imagePreviewContainer"></div>
 
   <br><br>
 
   <!-- Video Upload -->
   <input type="file" id="videoInput" accept="video/*" multiple style="display: none;" />
-  <button id="chooseVideoBtn">+</button>
+  <button id="chooseVideoBtn" title="Choose videos">+</button>
+  <div id="videoPreviewContainer"></div>
   <button id="uploadVideoBtn">Send Video(s)</button>
-  <div id="uploadVideoStatus" style="display: none; margin-top: 10px; color: #555; font-size: 14px;">
+  <div id="videoUploadStatus" style="display: none; margin-top: 10px; color: #555; font-size: 14px;">
     <span class="spinner" id="videoSpinner" style="display: none;"></span>
     <span id="videoStatusText"></span>
   </div>
-  <div id="videoPreviewContainer"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
 
-    // Firebase config & init
     const firebaseConfig = {
       apiKey: "AIzaSyA6uktBRcEfxGFaVx97ujxVzI5_EbNuEEo",
       authDomain: "happyfeed-af48f.firebaseapp.com",
@@ -139,38 +140,33 @@
     const db = getDatabase(app);
     const messagesRef = ref(db, 'messages');
 
-    // DOM Elements
     const chatBox = document.getElementById('chatBox');
     const msgInput = document.getElementById('msgInput');
     const sendBtn = document.getElementById('sendBtn');
     const nameInput = document.getElementById('nameInput');
     const saveNameBtn = document.getElementById('saveNameBtn');
-    const dmBtn = document.getElementById('dmBtn');
-
     const imageInput = document.getElementById('imageInput');
     const chooseImageBtn = document.getElementById('chooseImageBtn');
-    const uploadImageBtn = document.getElementById('uploadImageBtn');
-    const uploadImageStatus = document.getElementById('uploadImageStatus');
+    const uploadBtn = document.getElementById('uploadBtn');
     const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const dmBtn = document.getElementById('dmBtn');
 
     const videoInput = document.getElementById('videoInput');
     const chooseVideoBtn = document.getElementById('chooseVideoBtn');
     const uploadVideoBtn = document.getElementById('uploadVideoBtn');
-    const uploadVideoStatus = document.getElementById('uploadVideoStatus');
+    const videoPreviewContainer = document.getElementById('videoPreviewContainer');
+    const videoUploadStatus = document.getElementById('videoUploadStatus');
     const videoSpinner = document.getElementById('videoSpinner');
     const videoStatusText = document.getElementById('videoStatusText');
-    const videoPreviewContainer = document.getElementById('videoPreviewContainer');
 
-    // State
     let selectedImages = [];
     let selectedVideos = [];
 
-    // Navigation
     dmBtn.addEventListener("click", () => {
       window.location.href = "https://githubuser102234.github.io/HappyFeed/directmessaging";
     });
 
-    // Save username
     saveNameBtn.addEventListener("click", () => {
       const name = nameInput.value.trim();
       if (name) {
@@ -179,7 +175,6 @@
       }
     });
 
-    // Send text message
     sendBtn.addEventListener("click", sendMessage);
     msgInput.addEventListener("keydown", e => {
       if (e.key === "Enter") sendMessage();
@@ -194,10 +189,8 @@
       }
     }
 
-    // Render incoming messages
     function renderMessage(msg) {
       const msgElement = document.createElement("div");
-
       if (msg.imageUrl) {
         const img = document.createElement("img");
         img.src = msg.imageUrl;
@@ -208,12 +201,12 @@
         const video = document.createElement("video");
         video.src = msg.videoUrl;
         video.controls = true;
+        video.style.maxWidth = "300px";
         msgElement.innerHTML = `<strong>${msg.username || "Anonymous"}</strong>:<br>`;
         msgElement.appendChild(video);
       } else {
         msgElement.textContent = `[${msg.username || "Anonymous"}]: ${msg.text}`;
       }
-
       chatBox.appendChild(msgElement);
       chatBox.scrollTop = chatBox.scrollHeight;
     }
@@ -223,9 +216,8 @@
       renderMessage(msg);
     });
 
-    // Image input handlers
+    // Image input and preview
     chooseImageBtn.addEventListener("click", () => imageInput.click());
-
     imageInput.addEventListener("change", () => {
       selectedImages = Array.from(imageInput.files);
       imagePreviewContainer.innerHTML = '';
@@ -240,15 +232,12 @@
       });
     });
 
-    // Upload images to Imgur and send messages
-    uploadImageBtn.addEventListener("click", async () => {
-      if (!selectedImages.length) {
-        alert("Please choose one or more images first.");
-        return;
-      }
+    uploadBtn.addEventListener("click", async () => {
+      if (!selectedImages.length) return alert("Please choose one or more images first.");
 
-      uploadImageBtn.disabled = true;
-      uploadImageStatus.style.display = "block";
+      uploadBtn.disabled = true;
+      uploadStatus.style.display = "block";
+      uploadStatus.innerHTML = '<span class="spinner"></span> Uploading image(s)...';
 
       const username = localStorage.getItem("username") || "Anonymous";
 
@@ -257,98 +246,4 @@
         formData.append("image", file);
 
         try {
-          const res = await fetch("https://api.imgur.com/3/image", {
-            method: "POST",
-            headers: { Authorization: "Client-ID bf20b916779ba44" },
-            body: formData
-          });
-
-          const data = await res.json();
-          if (data.success) {
-            const imageUrl = data.data.link;
-            await push(messagesRef, { imageUrl, username, timestamp: Date.now() });
-          } else {
-            console.warn("Failed to upload image:", file.name);
-            alert(`Failed to upload image: ${file.name}`);
-          }
-        } catch (err) {
-          console.error("Error uploading image:", file.name, err);
-          alert(`Error uploading image: ${file.name}`);
-        }
-      }
-
-      imagePreviewContainer.innerHTML = '';
-      imageInput.value = '';
-      selectedImages = [];
-      uploadImageStatus.textContent = "All image(s) uploaded.";
-      setTimeout(() => uploadImageStatus.style.display = "none", 2000);
-      uploadImageBtn.disabled = false;
-    });
-
-    // Video input handlers
-    chooseVideoBtn.addEventListener("click", () => videoInput.click());
-
-    videoInput.addEventListener("change", () => {
-      selectedVideos = Array.from(videoInput.files);
-      videoPreviewContainer.innerHTML = '';
-      selectedVideos.forEach(file => {
-        const video = document.createElement("video");
-        video.src = URL.createObjectURL(file);
-        video.controls = true;
-        videoPreviewContainer.appendChild(video);
-      });
-    });
-
-    // Upload videos to Uguu and send messages
-    uploadVideoBtn.addEventListener("click", async () => {
-      if (!selectedVideos.length) {
-        alert("Please choose one or more videos first.");
-        return;
-      }
-
-      uploadVideoBtn.disabled = true;
-      uploadVideoStatus.style.display = "block";
-      videoSpinner.style.display = "inline-block";
-      videoStatusText.textContent = " Uploading video(s)...";
-
-      const username = localStorage.getItem("username") || "Anonymous";
-
-      for (const file of selectedVideos) {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        try {
-          const res = await fetch("https://uguu.se/api.php?d=upload-tool", {
-            method: "POST",
-            body: formData
-          });
-
-          const text = await res.text();
-
-          if (!res.ok || !text.startsWith("https://")) {
-            console.error("Upload failed:", res.status, text);
-            alert(`Failed to upload video: ${file.name}\nResponse: ${text}`);
-            continue; // skip this file and continue with others
-          }
-
-          const videoUrl = text.trim();
-          await push(messagesRef, { videoUrl, username, timestamp: Date.now() });
-
-        } catch (err) {
-          console.error("Video upload error:", err);
-          alert(`Failed to upload video: ${file.name}\nError: ${err.message}`);
-        }
-      }
-
-      videoPreviewContainer.innerHTML = '';
-      videoInput.value = '';
-      selectedVideos = [];
-      videoSpinner.style.display = "none";
-      videoStatusText.textContent = "All video(s) uploaded.";
-      setTimeout(() => uploadVideoStatus.style.display = "none", 2000);
-      uploadVideoBtn.disabled = false;
-    });
-
-  </script>
-</body>
-</html>
+          const
