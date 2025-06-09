@@ -21,7 +21,7 @@
     #chatBox div {
       margin-bottom: 10px;
     }
-    input[type="text"], input[type="file"] {
+    input[type="text"] {
       padding: 10px;
       width: 70%;
       margin-top: 10px;
@@ -30,13 +30,17 @@
       padding: 10px 20px;
       margin-top: 10px;
     }
-    #chooseImageBtn {
+    #chooseImageBtn, #chooseVideoBtn {
       font-size: 24px;
       width: 40px;
       height: 40px;
       padding: 0;
       text-align: center;
       cursor: pointer;
+      display: inline-block;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: white;
     }
     #imagePreviewContainer img {
       max-width: 100px;
@@ -101,10 +105,10 @@
   <br><br>
 
   <!-- Video Upload -->
-  <input type="file" id="videoInput" accept="video/*" />
-  <button id="uploadVideoBtn">Send Video</button>
+  <input type="file" id="videoInput" accept="video/*" style="display: none;" />
+  <button id="chooseVideoBtn">+</button>
   <div id="videoUploadStatus" style="margin-top: 10px; color: #555; font-size: 14px;">
-    <span class="spinner" style="display: none;" id="videoSpinner"></span>
+    <span class="spinner" id="videoSpinner" style="display: none;"></span>
     <span id="videoStatusText"></span>
   </div>
 
@@ -139,7 +143,7 @@
     const dmBtn = document.getElementById('dmBtn');
 
     const videoInput = document.getElementById('videoInput');
-    const uploadVideoBtn = document.getElementById('uploadVideoBtn');
+    const chooseVideoBtn = document.getElementById('chooseVideoBtn');
     const videoUploadStatus = document.getElementById('videoUploadStatus');
     const videoSpinner = document.getElementById('videoSpinner');
     const videoStatusText = document.getElementById('videoStatusText');
@@ -198,9 +202,8 @@
       renderMessage(msg);
     });
 
-    chooseImageBtn.addEventListener("click", () => {
-      imageInput.click();
-    });
+    chooseImageBtn.addEventListener("click", () => imageInput.click());
+    chooseVideoBtn.addEventListener("click", () => videoInput.click());
 
     imageInput.addEventListener("change", () => {
       selectedFiles = Array.from(imageInput.files);
@@ -232,9 +235,7 @@
         try {
           const res = await fetch("https://api.imgur.com/3/image", {
             method: "POST",
-            headers: {
-              Authorization: "Client-ID bf20b916779ba44"
-            },
+            headers: { Authorization: "Client-ID bf20b916779ba44" },
             body: formData
           });
 
@@ -253,21 +254,18 @@
       imagePreviewContainer.innerHTML = '';
       imageInput.value = '';
       selectedFiles = [];
-
       uploadStatus.innerHTML = "All image(s) uploaded.";
-      setTimeout(() => {
-        uploadStatus.style.display = "none";
-      }, 2000);
+      setTimeout(() => uploadStatus.style.display = "none", 2000);
       uploadBtn.disabled = false;
     });
 
-    uploadVideoBtn.addEventListener("click", async () => {
+    videoInput.addEventListener("change", async () => {
       const file = videoInput.files[0];
-      if (!file) return alert("Please choose a video file first.");
+      if (!file) return;
 
-      uploadVideoBtn.disabled = true;
       videoSpinner.style.display = "inline-block";
       videoStatusText.textContent = " Uploading video...";
+      chooseVideoBtn.disabled = true;
 
       const formData = new FormData();
       formData.append("file", file);
@@ -277,27 +275,27 @@
           method: "POST",
           body: formData
         });
+
         const data = await res.json();
-        if (data.success) {
+        if (res.ok && data.success && data.link) {
           const videoUrl = data.link;
           const username = localStorage.getItem("username") || "Anonymous";
           await push(messagesRef, { videoUrl, username, timestamp: Date.now() });
           videoStatusText.textContent = " Video uploaded!";
         } else {
+          console.warn("File.io response error:", data);
           videoStatusText.textContent = " Failed to upload video.";
         }
       } catch (err) {
-        console.error("Error uploading video:", err);
+        console.error("Video upload error:", err);
         videoStatusText.textContent = " Upload error.";
       }
 
       videoSpinner.style.display = "none";
       videoInput.value = '';
-      setTimeout(() => {
-        videoStatusText.textContent = "";
-      }, 3000);
+      chooseVideoBtn.disabled = false;
 
-      uploadVideoBtn.disabled = false;
+      setTimeout(() => videoStatusText.textContent = "", 3000);
     });
   </script>
 </body>
