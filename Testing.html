@@ -49,6 +49,13 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
+    #videoPreviewContainer video {
+      max-width: 150px;
+      max-height: 100px;
+      margin: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
     .spinner {
       display: inline-block;
       width: 20px;
@@ -95,7 +102,7 @@
 
   <!-- Image Upload -->
   <input type="file" id="imageInput" accept="image/*" multiple style="display: none;" />
-  <button id="chooseImageBtn">+</button>
+  <button id="chooseImageBtn" title="Choose images">+</button>
   <div id="imagePreviewContainer"></div>
   <button id="uploadBtn">Send Image(s)</button>
   <div id="uploadStatus" style="display: none; margin-top: 10px; color: #555; font-size: 14px;">
@@ -105,9 +112,11 @@
   <br><br>
 
   <!-- Video Upload -->
-  <input type="file" id="videoInput" accept="video/*" style="display: none;" />
-  <button id="chooseVideoBtn">+</button>
-  <div id="videoUploadStatus" style="margin-top: 10px; color: #555; font-size: 14px;">
+  <input type="file" id="videoInput" accept="video/*" multiple style="display: none;" />
+  <button id="chooseVideoBtn" title="Choose videos">+</button>
+  <div id="videoPreviewContainer"></div>
+  <button id="uploadVideoBtn">Send Video(s)</button>
+  <div id="videoUploadStatus" style="display: none; margin-top: 10px; color: #555; font-size: 14px;">
     <span class="spinner" id="videoSpinner" style="display: none;"></span>
     <span id="videoStatusText"></span>
   </div>
@@ -144,10 +153,14 @@
 
     const videoInput = document.getElementById('videoInput');
     const chooseVideoBtn = document.getElementById('chooseVideoBtn');
+    const uploadVideoBtn = document.getElementById('uploadVideoBtn');
+    const videoPreviewContainer = document.getElementById('videoPreviewContainer');
+    const videoUploadStatus = document.getElementById('videoUploadStatus');
     const videoSpinner = document.getElementById('videoSpinner');
     const videoStatusText = document.getElementById('videoStatusText');
 
-    let selectedFiles = [];
+    let selectedImages = [];
+    let selectedVideos = [];
 
     dmBtn.addEventListener("click", () => {
       window.location.href = "https://githubuser102234.github.io/HappyFeed/directmessaging";
@@ -201,13 +214,12 @@
       renderMessage(msg);
     });
 
+    // Image input and preview
     chooseImageBtn.addEventListener("click", () => imageInput.click());
-    chooseVideoBtn.addEventListener("click", () => videoInput.click());
-
     imageInput.addEventListener("change", () => {
-      selectedFiles = Array.from(imageInput.files);
+      selectedImages = Array.from(imageInput.files);
       imagePreviewContainer.innerHTML = '';
-      selectedFiles.forEach(file => {
+      selectedImages.forEach(file => {
         const reader = new FileReader();
         reader.onload = e => {
           const img = document.createElement("img");
@@ -219,7 +231,7 @@
     });
 
     uploadBtn.addEventListener("click", async () => {
-      if (!selectedFiles.length) return alert("Please choose one or more images first.");
+      if (!selectedImages.length) return alert("Please choose one or more images first.");
 
       uploadBtn.disabled = true;
       uploadStatus.style.display = "block";
@@ -227,7 +239,7 @@
 
       const username = localStorage.getItem("username") || "Anonymous";
 
-      for (const file of selectedFiles) {
+      for (const file of selectedImages) {
         const formData = new FormData();
         formData.append("image", file);
 
@@ -252,43 +264,64 @@
 
       imagePreviewContainer.innerHTML = '';
       imageInput.value = '';
-      selectedFiles = [];
+      selectedImages = [];
       uploadStatus.innerHTML = "All image(s) uploaded.";
       setTimeout(() => uploadStatus.style.display = "none", 2000);
       uploadBtn.disabled = false;
     });
 
-    videoInput.addEventListener("change", async () => {
-      const file = videoInput.files[0];
-      if (!file) return;
+    // Video input and preview
+    chooseVideoBtn.addEventListener("click", () => videoInput.click());
+    videoInput.addEventListener("change", () => {
+      selectedVideos = Array.from(videoInput.files);
+      videoPreviewContainer.innerHTML = '';
+      selectedVideos.forEach(file => {
+        const video = document.createElement("video");
+        video.src = URL.createObjectURL(file);
+        video.controls = true;
+        videoPreviewContainer.appendChild(video);
+      });
+    });
 
+    uploadVideoBtn.addEventListener("click", async () => {
+      if (!selectedVideos.length) return alert("Please choose one or more videos first.");
+
+      uploadVideoBtn.disabled = true;
+      videoUploadStatus.style.display = "block";
       videoSpinner.style.display = "inline-block";
-      videoStatusText.textContent = " Uploading video...";
-      chooseVideoBtn.disabled = true;
+      videoStatusText.textContent = " Uploading video(s)...";
 
-      try {
-        const res = await fetch("https://transfer.sh/" + encodeURIComponent(file.name), {
-          method: "PUT",
-          body: file
-        });
+      const username = localStorage.getItem("username") || "Anonymous";
 
-        if (!res.ok) throw new Error("Upload failed with status " + res.status);
+      for (const file of selectedVideos) {
+        const formData = new FormData();
+        formData.append("file", file);
 
-        const videoUrl = await res.text();
-        const username = localStorage.getItem("username") || "Anonymous";
-        await push(messagesRef, { videoUrl, username, timestamp: Date.now() });
-        videoStatusText.textContent = " Video uploaded!";
-      } catch (err) {
-        console.error("Video upload error:", err);
-        videoStatusText.textContent = " Upload error.";
+        try {
+          const res = await fetch("https://uguu.se/api.php?d=upload-tool", {
+            method: "POST",
+            body: formData
+          });
+
+          if (!res.ok) throw new Error("Upload failed with status " + res.status);
+
+          const videoUrl = (await res.text()).trim();
+          await push(messagesRef, { videoUrl, username, timestamp: Date.now() });
+        } catch (err) {
+          console.error("Video upload error:", err);
+          alert(`Failed to upload video: ${file.name}`);
+        }
       }
 
-      videoSpinner.style.display = "none";
+      videoPreviewContainer.innerHTML = '';
       videoInput.value = '';
-      chooseVideoBtn.disabled = false;
-
-      setTimeout(() => videoStatusText.textContent = "", 3000);
+      selectedVideos = [];
+      videoSpinner.style.display = "none";
+      videoStatusText.textContent = "All video(s) uploaded.";
+      setTimeout(() => videoUploadStatus.style.display = "none", 2000);
+      uploadVideoBtn.disabled = false;
     });
+
   </script>
 </body>
 </html>
